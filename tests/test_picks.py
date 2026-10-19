@@ -167,41 +167,65 @@ def test_selection_rules():
     assert len(keys) <= 4 and sum(c["stake"] for c in sel) <= 100 and ref == []
     # ranking is by the margin over each family's own threshold
     assert keys[0] == "d1"                                # margin 0.40
-    # nothing passes -> nearest candidates as reference (distinct races), no 精選
     sel, ref = picks.select_items(cands, {"thresholds": OFF_TH})
-    assert sel == [] and 1 <= len(ref) <= 3
-    assert len({(c["kind"], tuple(c["races"])) for c in ref}) == len(ref)
+    assert sel == [] and ref == []
 
 
-def test_make_picks_no_picks_and_reference_wording():
-    pk = picks.make_picks(meeting(), None, {"thresholds": OFF_TH})
-    assert pk["n_items"] == 0 and pk["total_stake"] == 0
-    assert pk["method_note"].startswith("今日冇玩法過門檻，冇精選")
-    assert 1 <= len(pk["items"]) <= 3 and all(i["grade"] == "參考" for i in pk["items"])
-    assert all(i["reason"].startswith("未過門檻") for i in pk["items"])
-    assert pk["banker"]["p_place"] == max(meeting()["p_place"]) or pk["banker"]["horse_no"] >= 1
-    assert "入三甲機率" in pk["banker"]["reason"] and "上名率" not in pk["banker"]["reason"]
+def test_select_section_rules():
+    cfg = picks._cfg({"section_min_hit": {**picks.SECTION_MIN_HIT, "WIN": 0.2, "TRI": 0.1}})
+    win = [_c("1:WIN:top:1", "WIN", "WIN", "single", 1, -0.05, 0.40), _c("1:WIN:top:2", "WIN", "WIN", "single", 1, 0.10, 0.25),
+           _c("2:WIN:top:1", "WIN", "WIN", "single", 2, 0.05, 0.30), _c("3:WIN:top:4", "WIN", "WIN", "single", 3, 0.90, 0.05)]
+    got = picks.select_section(win, "WIN", cfg)
+    # long shot (5% < 20%) excluded; best 2 by exp_roi from DIFFERENT races
+    assert [c["key"] for c in got] == ["1:WIN:top:2", "2:WIN:top:1"]
+    tri = [_c("1:TRI:box:3", "TRI", "TRI", "single", 1, -0.3, 0.06), _c("2:TRI:box:4", "TRI", "TRI", "single", 2, -0.1, 0.08)]
+    got = picks.select_section(tri, "TRI", cfg)        # none reaches 10%: the most likely one, flagged
+    assert [c["key"] for c in got] == ["2:TRI:box:4"] and got[0]["below_min_hit"]
+    assert picks.select_section([], "QIN", cfg) == []
+    # section membership: WIN / PLA sections take single horses only; generic all-ups are no section
+    assert picks._section_pool(_c("1:PLA:box:2", "PLA", "PLA", "single", 1, 0, 0.5)) is None
+    assert picks._section_pool({**_c("AU:PLA:3x4:1,2,3", "ALLUP", "PLA", "allup", 3, 0, 0.5)}) is None
+    assert picks._section_pool(_c("1:FF:bank:[2, 4]", "FF", "FF", "single", 1, 0, 0.1)) == "FF"
 
 
-def test_make_picks_reason_format_and_limits():
-    pk = picks.make_picks(meeting(), None, {"thresholds": OPEN_TH})
-    sel = [i for i in pk["items"] if i["grade"] == "精選"]
-    assert 1 <= len(sel) <= 8 and pk["total_stake"] <= 1500
-    for it in sel:
-        assert "預計命中" in it["reason"] and "估計回報" in it["reason"] and "（估計賠率）" in it["reason"]
-        assert it["odds_source"] == "估計賠率"         # no live odds dict -> estimated
-    per_race = {}
-    for it in sel:
-        if it["kind"] == "single":
-            per_race.setdefault(it["race_no"], []).append(it["pool"])
-    assert all(len(v) <= 2 for v in per_race.values())
+def test_make_picks_sections_and_fixed_products():
+    from hkjc import bots
+    pred = meeting(8, field=10)
+    pk = picks.make_picks(pred, None)
+    secs = [it["section"] for it in pk["items"]]
+    order = [code for code, _ in picks.SECTIONS]
+    assert secs == sorted(secs, key=order.index)              # grouped, in SECTIONS order
+    count = {s: secs.count(s) for s in set(secs)}
+    assert count == {"PLA_6x63": 1, "QPL_2x3": 3, "WIN": 2, "PLA": 2, "QIN": 1, "QPL": 1, "FCT": 1, "TRI": 1,
+                     "TCE": 1, "FF": 1, "QTT": 1, "DBL": 1, "TBL": 1}
+    assert [s["section"] for s in pk["sections"]] == [c for c in order if c in count]
+    six = [it for it in pk["items"] if it["section"] == "PLA_6x63"][0]
+    assert six["n_combos"] == 63 and six["stake"] == 630 and six["kind"] == "allup" and six["star"] is False
+    q = [it for it in pk["items"] if it["section"] == "QPL_2x3"]
+    assert all(x["n_combos"] == 15 and x["stake"] == 150 for x in q)
+    # identical to the fixed_combo robot's tickets
+    fc = [d["ticket"] for d in bots.decide("fixed_combo", pred, None, 10_000) if d["ticket"]]
+    mine = [six] + q
+    assert [[(l["race_no"], l["selections"]) for l in t["legs"]] for t in fc] == \
+           [[(l["race_no"], l["selections"]) for l in it["legs_raw"]] for it in mine]
+    assert pk["n_items"] == len(pk["items"]) and pk["total_stake"] == pytest.approx(sum(i["stake"] for i in pk["items"]))
+    for it in pk["items"]:
+        assert it["grade"] == "精選" and it["section_zh"] == picks.SECTION_ZH[it["section"]]
+        assert it["star"] == picks.passes({**it, "family": it["family"]}, picks._cfg())
+        assert ("⭐ 值博" in it["reason"]) == it["star"]
+        assert "預計命中" in it["reason"] and "估計回報" in it["reason"] and "上名率" not in it["reason"]
+        if it["section"] not in picks.FIXED_SECTIONS:
+            assert it["stake"] <= 300
+        assert it["ticket"]["notes"]["section"] == it["section"]
+    assert "入三甲機率" in six["reason"] and pk["legend"].startswith("⭐")
+    assert "入三甲機率" in pk["banker"]["reason"]
 
 
-def test_no_odds_nothing_graded():
+def test_no_odds_nothing_priced():
     pred = meeting().drop(columns=["win_odds"])
-    pk = picks.make_picks(pred, None, {"thresholds": OPEN_TH})
+    pk = picks.make_picks(pred, None)
     assert pk["items"] == [] and pk["n_items"] == 0
-    assert "賠率未開售" in pk["odds_note"] and "今日冇玩法過門檻" in pk["method_note"]
+    assert "賠率未開售" in pk["odds_note"] and "今日冇可以計算嘅玩法" in pk["method_note"]
     assert pk["banker"] is not None                      # 全日最穩 needs only the model
 
 
@@ -328,7 +352,9 @@ def test_backtest_uses_live_path(ro, tmp_path):
     picks.write_report_section(js, rep)                                          # idempotent replace
     assert rep.read_text(encoding="utf-8").count(picks.REPORT_HEADING) == 1
     o = js["oos"]["overall"]
-    assert o["n"] == sum(v["n"] for v in js["oos"]["by_family"].values())
+    assert o["n"] == sum(v["n"] for v in js["oos"]["by_section"].values())
+    assert js["section_min_hit"] == picks.SECTION_MIN_HIT
+    assert "每種玩法各一個" in txt
 
 
 # ----------------------------------------------------------------- exotic odds snapshot (mocked API)
@@ -353,3 +379,17 @@ def test_exotic_snapshot_cap_and_dbl_last_leg(tmp_path, monkeypatch):
         (2, "DBL", "1/1", 12.0), (3, "DBL", "2/1", 12.0),
         (1, "FF", "1,2,3,4", 50.0), (2, "FF", "1,2,3,4", 50.0), (3, "FF", "1,2,3,4", 50.0)]
     assert odds.latest_odds(c, "2099-03-03", "HV")[3]["DBL"] == {"2/1": 12.0}
+
+
+def test_void_settled_reverses_ledger(sdb):
+    D = "2099-02-02"
+    T = [{"strategy": "daily_picks:FCT", "pool": "FCT", "spec": None, "unit_stake": 10.0,
+          "legs": [{"race_no": 1, "pool": "FCT", "positions": [[1], [2, 3]]}]}]
+    paper.place_tickets(sdb, "r1", D, "ST", T, bot_id="daily_picks")
+    paper.settle(sdb, D)
+    assert paper.bankroll(sdb, "daily_picks") == pytest.approx(10_000 - 20 + 90)
+    ids = paper.void_settled(sdb, D, "ST", "daily_picks", "重做")
+    assert len(ids) == 1 and paper.bankroll(sdb, "daily_picks") == pytest.approx(10_000)
+    st_ = sdb.execute("SELECT status, payout, profit FROM paper_tickets WHERE ticket_id=?", (ids[0],)).fetchone()
+    assert tuple(st_) == ("void", 20.0, 0)
+    assert paper.void_settled(sdb, D, "ST", "daily_picks") == []

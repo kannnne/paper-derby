@@ -104,6 +104,28 @@ def void_open(conn, date, venue, bot_id=None, keep_run_id=None, note=None) -> li
     return ids
 
 
+def void_settled(conn, date, venue, bot_id, note=None) -> list[int]:
+    """Void SETTLED tickets of one meeting/robot (e.g. a robot's picks re-done with a new rule):
+    the ledger gets back the stake and gives back the payout (one row, amount = stake - payout),
+    the ticket becomes 'void' (payout = stake, profit 0, like void_open).  Returns the ticket ids."""
+    ts = _now()
+    ids = []
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        for t in conn.execute("SELECT ticket_id, total_stake, payout FROM paper_tickets WHERE date=? AND venue=? "
+                              "AND status='settled' AND bot_id IS ?", (date, venue, bot_id)).fetchall():
+            stake, pay = float(t[1]), float(t[2] or 0.0)
+            conn.execute("UPDATE paper_tickets SET status='void', payout=?, profit=0, settled_at=? WHERE ticket_id=?",
+                         (stake, ts, t[0]))
+            _ledger(conn, t[0], round(stake - pay, 2), note or "作廢退回（已結算注項重做）", ts, bot_id)
+            ids.append(t[0])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return ids
+
+
 def _spec_of(strategy: str, ticket: dict):
     if ticket.get("spec") is not None or "spec" in ticket:
         return ticket.get("spec")

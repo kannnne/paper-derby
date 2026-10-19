@@ -1,17 +1,20 @@
-"""今日精選 (third version) - analysis-driven daily picks across ALL HKJC pools.  PAPER ONLY.
+"""今日精選 (fourth version: 「每種玩法各一個」) - analysis picks for EVERY popular play type.  PAPER ONLY.
 
-Nothing is fixed in advance: for every race (and race pair / triple / all-up) the engine prices
-every structure of every pool from the model's probabilities, and only items whose estimated
-return AND hit probability clear thresholds tuned on the 2024-25 season (walk-forward
-predictions ``wf-combined-v1``; 2025-26 + 2026-27 out of sample) are graded 「精選」.  When
-nothing qualifies, ``items`` holds at most 3 nearest candidates graded 「參考」 (clearly marked
-未過門檻) and method_note says 「今日冇玩法過門檻，冇精選」.
+Every play type gets its own pick (a ``section``), so whoever plays any pool has a suggestion:
+位置過關 6x63 and 位置Q 2x3 x3 (the user's original fixed rule, = the fixed_combo robot), 獨贏 /
+位置 (best 2 single bets each), and the best race + structure of 連贏, 位置Q, 二重彩, 單T, 三重彩,
+四連環, 四重彩, 孖寶, 三寶.  Within a section the pick is the candidate with the highest estimated
+return among those whose hit probability reaches the section minimum (SECTION_MIN_HIT, no lottery
+long shots).  Items that ALSO pass the family thresholds tuned on the 2024-25 season (walk-forward
+predictions ``wf-combined-v1``; 2025-26 + 2026-27 out of sample) carry ``star`` = ⭐ 值博; the
+rest are simply that play type's best option of the day and are not necessarily worth betting.
 
 Public API
 ----------
-make_picks(pred_df, odds, cfg=None) -> dict              SPEC_V2 「今日精選（第三版）」 picks dict
+make_picks(pred_df, odds, cfg=None) -> dict              picks dict (sections, ⭐ star)
 enumerate_candidates(pred_df, odds, cfg=None) -> (cands, ctx)   every priced candidate
-select_items(cands, cfg=None) -> (selected, reference)  grading + de-duplication + day caps
+select_sections(cands, cfg=None) -> [(section, cand)]   one pick per play type (WIN/PLA: 2)
+select_items(cands, cfg=None) -> (selected, [])         第三版 threshold-only rule (tunes the ⭐ thresholds)
 settle_item(item, data) -> {hit, payout, profit, detail, stake}  real-dividend settlement
 item_ticket(item) -> SPEC ticket dict                    (what the daily_picks robot buys)
 save_picks(conn, run_id, date, venue, picks) / load_picks(conn, run_id=None, date, venue)
@@ -47,12 +50,13 @@ TRI 23%, TCE/FF/QTT/TBL 25% (HKJC Local Pools page, see strategy.TAKEOUT).
 With no odds at all (pools not open yet) no pool can be priced -> nothing is graded and
 odds_note says so.
 
-Grading: a candidate is 「精選」 when its pool family (WIN PLA QIN QPL FCT TRI TCE FF QTT DBL TBL
-ALLUP) is enabled and exp_roi >= tau_family and hit_prob >= h_family (THRESHOLDS; a family whose
-best 2024-25 setting did not make money is disabled).  Candidates are ranked by their margin over
-their own family's tau; per race at most ``max_per_race`` items and one per pool group
-({WIN,PLA} {QIN,QPL,FCT} {TRI,TCE,FF,QTT}); multi-race items of the same pool may not share a
-race; at most one all-up per base pool; day caps ``max_items`` (8) and ``max_total`` ($1,500).
+Sections (select_sections): PLA_6x63 / QPL_2x3 = strategy.build_allup / build_multi_allup with the
+fixed_combo robot's settings; every other section = max exp_roi subject to hit_prob >=
+SECTION_MIN_HIT[section] (fallback when nothing reaches it: the most likely candidate); WIN / PLA
+take the best 2 single horses from different races.  ⭐ star = the item's family passes
+THRESHOLDS (exp_roi >= tau and hit_prob >= h, tuned on 2024-25 with select_items; a family whose
+best 2024-25 setting did not make money has no ⭐).  No day cap: the daily_picks robot buys every
+section (~$1,600 a day, $1,080 of it the two fixed products) to track each play type.
 
 CAVEAT: the backtest prices with FINAL win odds (known only at the off) and estimates every
 other pool from them - live picks use odds ~2 hours before race 1, so the historical results are
@@ -132,11 +136,10 @@ TUNE_H = {"WIN": (0.1, 0.2, 0.3), "PLA": (0.3, 0.45, 0.6), "QIN": (0.1, 0.2, 0.3
           "DBL": (0.05, 0.1, 0.2), "TBL": (0.02, 0.05, 0.1), "ALLUP": (0.05, 0.15, 0.3)}
 TUNE_MIN_N = {**{p: 60 for p in SINGLE_POOLS}, "DBL": 40, "TBL": 20, "ALLUP": 20}
 TUNE_MIN_EXP_HITS = 10.0        # a setting must expect >= 10 winning bets in 2024-25
-REF_DEFAULT_H = {f: TUNE_H[f][1] for f in FAMILIES}   # 參考 ranking for disabled families
 
 DEFAULT_CONFIG = {
     "unit_stake": UNIT, "max_items": 8, "max_total": 1500.0, "max_item_stake": 300.0,
-    "max_per_race": 2, "max_allups": 2, "n_reference": 3, "allup_max_legs": 6,
+    "max_per_race": 2, "max_allups": 2, "allup_max_legs": 6,
     "lam2": LAM2, "lam3": LAM3, "calib": CALIB, "mr_calib": MR_CALIB,
     "thresholds": THRESHOLDS, "families": FAMILIES, "ret_adj": RET_ADJ, "hit_adj": HIT_ADJ,
 }
@@ -523,6 +526,72 @@ def _allup_candidates(races_by_rn, cfg):
     return out
 
 
+# ---- the user's original fixed products (固定組合: 位置 6x63 + 3 條位置Q 2x3) -------------------
+FIXED_SECTIONS = ("PLA_6x63", "QPL_2x3")
+
+
+def _fixed_candidates(races_by_rn, cfg):
+    """Exactly the fixed_combo robot's rule (strategy.build_allup / build_multi_allup on the
+    same prepared frames): 位置 6x63 on the 6 races with the most confident top pick
+    (p_place), and 3 x 位置Q 2x3 (6 further races... chosen by confidence, top-3 by p_place)."""
+    if not cfg.get("fixed_products", True):
+        return []
+    out = []
+    unit = float(cfg["unit_stake"])
+    cols = ["race_no", "horse_no", "p_win", "p_place"]
+    rs = [races_by_rn[k] for k in sorted(races_by_rn)]
+    if not rs:
+        return out
+    frame = pd.concat([r.ctx.df[cols] for r in rs], ignore_index=True)
+    t = st.build_allup(frame, pool="PLA", n_legs=6, spec="6x63", horses_per_leg=1, race_rule="confidence",
+                       unit_stake=unit, strategy="daily_picks:PLA_6x63", _prepped=True)
+    if t is not None:
+        c = _fixed_cand("PLA_6x63", "PLA", "6x63", t["legs"], races_by_rn, unit,
+                        "6 場各 1 隻（63 注）", "FX:PLA_6x63")
+        if c:
+            out.append(c)
+    q7 = [r for r in rs if r.n >= 7]
+    if q7:
+        qframe = pd.concat([r.ctx.df[cols] for r in q7], ignore_index=True)
+        qts = st.build_multi_allup(qframe, pool="QPL", n_tickets=3, legs_per_ticket=2, spec="2x3",
+                                   horses_per_leg=3, race_rule="confidence", pairing="chrono", unit_stake=unit,
+                                   strategy="daily_picks:QPL_2x3", _prepped=True)
+        for q in qts:
+            c = _fixed_cand("QPL_2x3", "QPL", "2x3", q["legs"], races_by_rn, unit,
+                            f"第{q['ticket_no']}條：2 場各 3 隻（15 注）", f"FX:QPL_2x3:{q['ticket_no']}")
+            if c:
+                out.append(c)
+    return out
+
+
+def _fixed_cand(section, pool, spec, tlegs, races_by_rn, unit, name, key):
+    legs = []
+    for l in tlegs:
+        r = races_by_rn[int(l["race_no"])]
+        combos = bets.multiple(pool, l["selections"])
+        e, srcs = 0.0, set()
+        for c in combos:
+            d, s = r.div(pool, c)
+            if d is None:
+                return None
+            srcs.add(s)
+            e += r.prob(pool, c) * d / 10.0
+        hit = r.pp.get(l["selections"][0], 0.0) if pool == "PLA" else r.probs.hit_prob(pool, combos)
+        legs.append({"race_no": r.rn, "pool": pool, "selections": list(l["selections"]), "combos": combos,
+                     "E": e, "hit": float(hit), "srcs": srcs})
+    k = len(legs)
+    subs = bets.allup_subsets(k, spec)
+    units = sum(int(np.prod([len(legs[i]["combos"]) for i in s_])) for s_ in subs)
+    er = sum(float(np.prod([legs[i]["E"] for i in s_])) for s_ in subs)
+    kmin = min(len(s_) for s_ in subs)
+    hit = _p_at_least([l["hit"] for l in legs], kmin)
+    srcs = set().union(*(l["srcs"] for l in legs))
+    tl = [{"race_no": l["race_no"], "pool": pool, "selections": l["selections"]} for l in legs]
+    c = _cand("allup", section, pool, tl, units, unit, max(hit, 1e-9), er, srcs, name, spec=spec, key=key,
+              extra={"kmin": kmin, "section": section, "leg_info": [(l["race_no"], l["hit"]) for l in legs]})
+    return c
+
+
 # =====================================================================================
 # enumerate / select
 # =====================================================================================
@@ -557,6 +626,7 @@ def enumerate_candidates(pred_df, odds=None, cfg=None):
         cands += _single_candidates(r, cfg)
     cands += _multi_candidates(races, cfg)
     cands += _allup_candidates(races, cfg)
+    cands += _fixed_candidates(races, cfg)
     for c in cands:
         _adjust(c, cfg)
     live_pools = sorted({p for r in races.values() for p, b in r.live.items() if b})
@@ -567,9 +637,11 @@ def enumerate_candidates(pred_df, odds=None, cfg=None):
 
 def _adjust(c, cfg):
     """Per-family bias correction of the model estimates (fitted on 2024-25 candidates):
-    expected return x RET_ADJ[family], hit probability x HIT_ADJ[family]."""
-    kr = (cfg.get("ret_adj") or {}).get(c["family"], 1.0)
-    kh = (cfg.get("hit_adj") or {}).get(c["family"], 1.0)
+    expected return x RET_ADJ[family], hit probability x HIT_ADJ[family] (the user's fixed
+    all-ups use the ALLUP factors)."""
+    fam = "ALLUP" if c["family"] in FIXED_SECTIONS else c["family"]
+    kr = (cfg.get("ret_adj") or {}).get(fam, 1.0)
+    kh = (cfg.get("hit_adj") or {}).get(fam, 1.0)
     er, hit, n = c["er_raw"] * kr, min(1.0, c["hit_raw"] * kh), c["n_combos"]
     c["exp_roi"] = float(er / n - 1.0)
     c["hit_prob"] = float(hit)
@@ -607,7 +679,8 @@ def _conflicts(c, chosen, cfg):
 
 
 def select_items(cands, cfg=None):
-    """(精選 list, 參考 list).  参考 only when nothing passes: the nearest candidates."""
+    """Threshold-only selection (the 第三版 rule, now used only to tune the ⭐ family thresholds):
+    (items passing their family threshold after de-duplication and day caps, [])."""
     cfg = _cfg(cfg)
     ok = sorted([c for c in cands if passes(c, cfg)], key=lambda c: _sort_key(c, cfg))
     chosen, total = [], 0.0
@@ -620,37 +693,9 @@ def select_items(cands, cfg=None):
             continue
         chosen.append(c)
         total += c["stake"]
-    ref = []
-    if not chosen:
-        ref = nearest(cands, cfg, cfg["n_reference"])
-    return chosen, ref
+    return chosen, []
 
 
-def _ref_gap(c, cfg):
-    th = cfg["thresholds"].get(c["family"])
-    tau = th["tau"] if th else 0.0
-    h = th["h"] if th else REF_DEFAULT_H[c["family"]]
-    return max(0.0, tau - c["exp_roi"]) + max(0.0, h - c["hit_prob"])
-
-
-def nearest(cands, cfg, n=3):
-    """The n candidates closest to the thresholds (distinct races / pools)."""
-    pool = sorted(cands, key=lambda c: (round(_ref_gap(c, cfg), 10), -c["exp_roi"], c["key"] or ""))
-    out, seen = [], set()
-    for c in pool:
-        k = (c["kind"], tuple(c["races"])) if c["kind"] != "allup" else ("allup",)
-        if k in seen:
-            continue
-        seen.add(k)
-        out.append(c)
-        if len(out) >= n:
-            break
-    return out
-
-
-# =====================================================================================
-# formatting
-# =====================================================================================
 def _pc(x):
     return f"{x * 100:.0f}%"
 
@@ -721,18 +766,6 @@ def _reason(c, races, grade, cfg):
            f"預計命中 {_pc(c['hit_prob'])}，估計回報 {_roi(c['exp_roi'])}（{SRC_ZH[c['odds_source']]}）")
     if c.get("est_return_if_hit"):
         txt += f"，中咗平均派約 {_money(c['est_return_if_hit'])}"
-    if grade == "參考":
-        th = cfg["thresholds"].get(c["family"])
-        if not th:
-            why = "呢類玩法用 2024-25 季歷史數據驗證未見正回報，唔會評做精選"
-        else:
-            bits = []
-            if c["exp_roi"] < th["tau"]:
-                bits.append(f"估計回報 {_roi(c['exp_roi'])} 低過門檻 {_roi(th['tau'])}")
-            if c["hit_prob"] < th["h"]:
-                bits.append(f"命中 {_pc(c['hit_prob'])} 低過門檻 {_pc(th['h'])}")
-            why = "；".join(bits) or "已有更好嘅項目或超出每日上限"
-        txt = f"未過門檻（只供參考，冇落注）：{txt}。{why}"
     return txt
 
 
@@ -832,34 +865,136 @@ def _odds_note(ctx):
     return txt
 
 
-def _race_notes(cands, chosen, cfg):
-    """Per race: best single candidate and whether it was picked (daily_picks skip reasons)."""
-    out = {}
-    picked = {c["key"] for c in chosen}
+# =====================================================================================
+# sections (第四版「每種玩法各一個」)
+# =====================================================================================
+SECTIONS = [("PLA_6x63", "位置過關 6x63"), ("QPL_2x3", "位置Q 2x3 ×3 條"), ("WIN", "獨贏"), ("PLA", "位置"),
+            ("QIN", "連贏"), ("QPL", "位置Q"), ("FCT", "二重彩"), ("TRI", "單T"), ("TCE", "三重彩"),
+            ("FF", "四連環"), ("QTT", "四重彩"), ("DBL", "孖寶"), ("TBL", "三寶")]
+SECTION_ZH = dict(SECTIONS)
+SECTION_N = {"WIN": 2, "PLA": 2}                       # picks per section (others: 1)
+# Minimum hit probability per section (no lottery long shots).  Starting values from the spec,
+# lightly tuned on 2024-25 ONLY (tune_section_hits: ROI with the largest payout removed);
+# see data/picks_backtest.json "section_tuning".
+# Spec start: WIN 20% PLA 45% QIN/QPL 15% FCT 8% TRI/FF 10% TCE/QTT 4% DBL 8% TBL 4%.
+# Tuned (2024-25 robust ROI, 88 meetings): WIN 15%, QIN 10%, QPL 45%, FCT 5%, TRI 15%, FF 20%,
+# QTT 8%, DBL 16%; PLA / TCE / TBL unchanged.
+SECTION_MIN_HIT = {"WIN": 0.15, "PLA": 0.45, "QIN": 0.10, "QPL": 0.45, "FCT": 0.05, "TRI": 0.15,
+                   "TCE": 0.04, "FF": 0.20, "QTT": 0.08, "DBL": 0.16, "TBL": 0.04}
+SECTION_HIT_GRID = {"WIN": (0.15, 0.20, 0.25, 0.30), "PLA": (0.40, 0.45, 0.50, 0.55),
+                    "QIN": (0.10, 0.15, 0.20, 0.25), "QPL": (0.15, 0.25, 0.35, 0.45),
+                    "FCT": (0.05, 0.08, 0.12, 0.16), "TRI": (0.06, 0.10, 0.15, 0.20),
+                    "TCE": (0.02, 0.04, 0.06, 0.08), "FF": (0.06, 0.10, 0.15, 0.20),
+                    "QTT": (0.02, 0.04, 0.06, 0.08), "DBL": (0.05, 0.08, 0.12, 0.16),
+                    "TBL": (0.02, 0.04, 0.06, 0.08)}
+
+
+def _section_pool(c):
+    """Section code a candidate can serve (None = none: generic all-ups are not a section)."""
+    if c["family"] in FIXED_SECTIONS:
+        return c["family"]
+    if c["kind"] == "allup":
+        return None
+    if c["pool"] in ("WIN", "PLA") and ":top:" not in (c["key"] or ""):
+        return None                                     # WIN / PLA sections = single horses only
+    return c["pool"]
+
+
+def select_section(cands, section, cfg):
+    """The pick(s) of one section from its candidates (already filtered to the section).
+
+    Fixed sections: their candidates as built.  Others: highest exp_roi among candidates with
+    hit_prob >= the section's minimum (WIN / PLA: the best 2 from different races); when no
+    candidate reaches the minimum, the most likely one (highest hit_prob) instead."""
+    if section in FIXED_SECTIONS:
+        return list(cands)
+    if not cands:
+        return []
+    mh = (cfg.get("section_min_hit") or SECTION_MIN_HIT).get(section, 0.0)
+    ok = [c for c in cands if c["hit_prob"] >= mh - 1e-12]
+    key = lambda c: (-round(c["exp_roi"], 10), -round(c["hit_prob"], 10), c["stake"], c["key"] or "")
+    pool = sorted(ok, key=key) if ok else sorted(cands, key=lambda c: (-round(c["hit_prob"], 10), key(c)))
+    n = SECTION_N.get(section, 1)
+    out, seen = [], set()
+    for c in pool:
+        if c["race_no"] in seen and c["kind"] == "single":
+            continue
+        out.append({**c, "below_min_hit": not ok})
+        seen.add(c["race_no"])
+        if len(out) >= n:
+            break
+    return out
+
+
+def select_sections(cands, cfg=None):
+    """[(section, candidate)] in SECTIONS order."""
+    cfg = _cfg(cfg)
+    by = {}
     for c in cands:
-        if c["kind"] != "single":
-            continue
-        cur = out.get(c["race_no"])
-        if cur is None or _ref_gap(c, cfg) < _ref_gap(cur, cfg) - 1e-12:
-            out[c["race_no"]] = c
+        sp = _section_pool(c)
+        if sp:
+            by.setdefault(sp, []).append(c)
+    out = []
+    for sec, _zh in SECTIONS:
+        for c in select_section(by.get(sec, []), sec, cfg):
+            out.append((sec, c))
+    return out
+
+
+def _fixed_reason(c, races):
+    legs = []
+    for l in c["legs"]:
+        r = races[int(l["race_no"])]
+        hs = l["selections"]
+        legs.append(f"第{r.rn}場 {_hs(hs)}{'號' if len(hs) == 1 else ''}（入三甲機率 {'/'.join(_pc(r.pp[h]) for h in hs)}）")
+    what = ("用戶原本固定玩法：模型最有信心（入三甲機率最高）嘅 6 場每場 1 隻" if c["family"] == "PLA_6x63"
+            else "用戶原本固定玩法：每場頭 3 選（入三甲機率）做位置Q，2 場一條")
+    return (f"{what}：" + "；".join(legs) + f"，{c['spec']} 共 {c['n_combos']} 注 {_money(c['stake'])}，"
+            f"中 {c['kmin']} 關或以上有派彩，預計命中 {_pc(c['hit_prob'])}，估計回報 {_roi(c['exp_roi'])}"
+            f"（{SRC_ZH[c['odds_source']]}）")
+
+
+def _section_item(sec, c, rank, races, info, post, cfg):
+    it = _item(c, rank, "精選", races, info, post, cfg)
+    star = passes(c, cfg)
+    it["section"], it["section_zh"], it["star"] = sec, SECTION_ZH[sec], bool(star)
+    if sec in FIXED_SECTIONS:
+        it["reason"] = _fixed_reason(c, races)
+        it["pool_zh"] = "位置過關" if sec == "PLA_6x63" else "位置Q過關"
+    th = cfg["thresholds"].get(c["family"])
+    if star:
+        tail = f"。⭐ 值博：估計回報 ≥ {_roi(th['tau'])} 而且預計命中 ≥ {_pc(th['h'])}（門檻用 2024-25 季歷史數據定）"
+    elif sec in FIXED_SECTIONS:
+        tail = "。（固定玩法，照用戶原本規則；唔係值博評級）"
+    elif c.get("below_min_hit"):
+        tail = f"。（冇任何組合預計命中達 {_pc((cfg.get('section_min_hit') or SECTION_MIN_HIT)[sec])}，揀最大機會嗰個；未過值博門檻）"
+    else:
+        tail = "。（呢個玩法當日最好嘅選擇，未過值博門檻）"
+    it["reason"] += tail
+    it["ticket"]["notes"]["section"] = sec
+    it["ticket"]["notes"]["star"] = bool(star)
+    return it
+
+
+def _race_notes_sections(races, chosen):
+    used = {}
+    for sec, c in chosen:
+        for rn in c["races"]:
+            used.setdefault(rn, []).append(SECTION_ZH[sec])
     notes = {}
-    for rn, c in out.items():
-        th = cfg["thresholds"].get(c["family"])
-        if c["key"] in picked:
-            continue
-        if th and passes(c, cfg):
-            why = "過門檻但已有更好嘅項目或超出每日上限"
-        elif not th:
-            why = "呢類玩法用 2024-25 季歷史數據驗證未見正回報"
+    for rn in races:
+        if rn in used:
+            notes[rn] = "本場係以下精選嘅一部分：" + "、".join(dict.fromkeys(used[rn]))
         else:
-            why = f"門檻：估計回報 ≥ {_roi(th['tau'])}、命中 ≥ {_pc(th['h'])}"
-        notes[rn] = (f"最接近門檻嘅係 {POOL_ZH[c['pool']]} {c['structure_zh']}：估計回報 {_roi(c['exp_roi'])}"
-                     f"（{SRC_ZH[c['odds_source']]}）、預計命中 {_pc(c['hit_prob'])}（{why}）")
+            notes[rn] = "各玩法當日最好嘅選擇都喺其他場次"
     return notes
 
 
 def make_picks(pred_df, odds=None, cfg=None) -> dict:
-    """「今日精選」 dict (SPEC_V2 第三版) for one meeting.
+    """「今日精選」 dict (第四版「每種玩法各一個」) for one meeting.
+
+    Every popular play type gets its own analysis pick (section), in SECTIONS order; items that
+    also pass the family thresholds tuned on 2024-25 carry ``star`` (⭐ 值博).
 
     pred_df: race_no, horse_no, p_win, p_place [+ race_id, scratched, win_odds, win_odds_live,
     pla_odds, horse_name, jockey_name, score, post_time].  odds: {race_no: {pool: {combo: odds}}}
@@ -867,34 +1002,34 @@ def make_picks(pred_df, odds=None, cfg=None) -> dict:
     cfg = _cfg(cfg)
     info, post = _horse_info(pred_df)
     cands, ctx = enumerate_candidates(pred_df, odds, cfg)
-    chosen, ref = select_items(cands, cfg)
+    chosen = select_sections(cands, cfg)
     races = ctx["races"]
-    items = [_item(c, i, "精選", races, info, post, cfg) for i, c in enumerate(chosen, 1)]
-    items += [_item(c, len(items) + i, "參考", races, info, post, cfg) for i, c in enumerate(ref, 1)]
-    enabled = [f for f in FAMILIES if cfg["thresholds"].get(f)]
-    method = ("由模型機率逐場比較馬會所有玩法（獨贏、位置、連贏、位置Q、二重彩、單T、三重彩、四連環、四重彩、"
-              "孖寶、三寶、過關）同各種結構（單注、複式、膽拖、定位），計預計命中同估計回報；"
-              "只揀估計回報同命中機率都過門檻嘅項目"
-              f"（每日最多 {cfg['max_items']} 項、{_money(cfg['max_total'])}，每場最多 {cfg['max_per_race']} 項）。"
-              "門檻只用 2024-25 季歷史數據調校，2025-26 起樣本外驗證；模擬研究，非投注建議。")
-    if enabled:
-        method += "現時有門檻嘅玩法：" + "、".join("過關" if f == "ALLUP" else POOL_ZH[f] for f in enabled) + "。"
-    else:
-        method += "用 2024-25 季歷史數據驗證，冇一類玩法過門檻後有正回報，所以暫時唔會出精選。"
-    if not chosen:
-        method = NO_PICKS_NOTE + "。" + method
-    sel = [it for it in items if it["grade"] == "精選"]
+    items = [_section_item(sec, c, i, races, info, post, cfg) for i, (sec, c) in enumerate(chosen, 1)]
+    have = {it["section"] for it in items}
+    missing = [zh for code, zh in SECTIONS if code not in have]
+    method = ("每種玩法各揀一個：由模型機率逐場比較每個玩法嘅各種結構（單注、複式、膽拖、定位），"
+              "喺預計命中唔太低嘅組合入面揀估計回報最高嗰個（獨贏、位置各揀 2 個）；"
+              "「位置過關 6x63」同「位置Q 2x3 ×3 條」照用戶原本規則。"
+              "⭐ 值博 = 估計回報同預計命中都過 2024-25 季歷史數據定嘅門檻；其他係該玩法當日最好嘅選擇，未必值博。"
+              "模擬研究，非投注建議。")
+    if missing:
+        method += "今日冇：" + "、".join(missing) + "（場次唔夠／出賽馬匹太少／冇賠率估唔到）。"
+    if not items:
+        method = "今日冇可以計算嘅玩法（未有賠率或者模型預測）。" + method
     return {"title": TITLE, "generated_at": datetime.now(HKT).replace(tzinfo=None).isoformat(timespec="seconds"),
             "method_note": method, "odds_note": _odds_note(ctx),
-            "total_stake": round(sum(it["stake"] for it in sel), 2), "n_items": len(sel),
+            "legend": "⭐ = 分析估計回報過門檻；其他係該玩法當日最好嘅選擇，未必值博",
+            "sections": [{"section": code, "section_zh": zh} for code, zh in SECTIONS if code in have],
+            "total_stake": round(sum(it["stake"] for it in items), 2), "n_items": len(items),
+            "n_star": sum(1 for it in items if it["star"]),
             "total_payout": None, "total_profit": None, "items": items,
             "banker": _banker(races, info, post),
-            "race_notes": {str(k): v for k, v in _race_notes(cands, chosen, cfg).items()},
+            "race_notes": {str(k): v for k, v in _race_notes_sections(races, chosen).items()},
             "n_candidates": len(cands)}
 
 
 # =====================================================================================
-# settlement (backtest + publish of 參考 items)
+# settlement (backtest + publish fallback)
 # =====================================================================================
 class DBData:
     """Dividend access for one meeting from the database (publish / tests)."""
@@ -1029,19 +1164,18 @@ def public_picks(picks):
 
 
 def picks_md(picks) -> str:
-    """「## 今日精選」 section of the pre-race report (same items as the site)."""
+    """「## 今日精選」 section of the pre-race report (same items as the site), grouped by play type."""
     if not picks:
         return "## 今日精選\n_(未有精選：模型未有預測)_\n"
-    out = ["## 今日精選", "", f"_{picks.get('method_note') or ''}_", "", f"{picks.get('odds_note') or ''}", ""]
-    sel = [i for i in picks.get("items") or [] if i["grade"] == "精選"]
-    ref = [i for i in picks.get("items") or [] if i["grade"] != "精選"]
-    if not sel:
-        out.append("**今日冇精選**")
-        out.append("")
-    if sel or ref:
-        out += ["| # | 評級 | 場次 | 玩法 | 結構 | 選擇 | 注數 | 注碼 | 預計命中 | 估計回報 | 賠率 | 結果 |",
-                "|---:|---|---|---|---|---|---:|---:|---:|---:|---|---|"]
-        for it in sel + ref:
+    out = ["## 今日精選", "", f"_{picks.get('method_note') or ''}_", "", f"{picks.get('odds_note') or ''}", "",
+           f"_{picks.get('legend') or '⭐ = 分析估計回報過門檻；其他係該玩法當日最好嘅選擇，未必值博'}_", ""]
+    items = picks.get("items") or []
+    if not items:
+        out += ["**今日冇精選**", ""]
+    else:
+        out += ["| # | 玩法 | 值博 | 場次 | 結構 | 選擇 | 注數 | 注碼 | 預計命中 | 估計回報 | 賠率 | 結果 |",
+                "|---:|---|:---:|---|---|---|---:|---:|---:|---:|---|---|"]
+        for it in items:
             legs = []
             for l in it["legs"]:
                 if l.get("positions"):
@@ -1056,17 +1190,19 @@ def picks_md(picks) -> str:
             res = it.get("result")
             rtxt = "-" if not res else (f"{'✅' if res['hit'] else '❌'} 派 ${res['payout']:,.0f}（{res['profit']:+,.0f}）"
                                         + ("（假設）" if res.get("hypothetical") else ""))
-            out.append(f"| {it['rank']} | {it['grade']} | {races} | {it['pool_zh']} | {it['structure_zh']} | "
-                       f"{'；'.join(legs)} | {it['n_combos']} | ${it['stake']:,.0f} | {it['hit_prob'] * 100:.0f}% | "
-                       f"{it['exp_roi'] * 100:+.0f}% | {it['odds_source']} | {rtxt} |")
+            out.append(f"| {it['rank']} | {it.get('section_zh') or it['pool_zh']} | {'⭐' if it.get('star') else ''} | "
+                       f"{races} | {it['structure_zh']} | {'；'.join(legs)} | {it['n_combos']} | ${it['stake']:,.0f} | "
+                       f"{it['hit_prob'] * 100:.0f}% | {it['exp_roi'] * 100:+.0f}% | {it['odds_source']} | {rtxt} |")
         out.append("")
-        for it in sel + ref:
-            out.append(f"- **#{it['rank']} {it['grade']}**：{it['reason']}")
+        for it in items:
+            out.append(f"- **#{it['rank']} {it.get('section_zh') or it['pool_zh']}{' ⭐ 值博' if it.get('star') else ''}**："
+                       f"{it['reason']}")
         out.append("")
     b = picks.get("banker")
     if b:
         out.append(f"**全日最穩**：第{b['race_no']}場 {b['horse_no']}號 {b['horse_name']} — {b['reason']}")
-    tot = f"**精選合共 {picks.get('n_items', 0)} 項 ${picks.get('total_stake') or 0:,.0f}（模擬）**"
+    tot = (f"**精選合共 {picks.get('n_items', 0)} 項（⭐ 值博 {picks.get('n_star', 0)} 項）"
+           f" ${picks.get('total_stake') or 0:,.0f}（模擬）**")
     if picks.get("total_payout") is not None:
         tot += f"　派彩 ${picks['total_payout']:,.2f}，盈虧 {picks['total_profit']:+,.2f}"
     out += ["", tot, ""]
@@ -1225,6 +1361,8 @@ def fit_adjustments(meetings, mr, seasons=IS_SEASONS):
         dat = BTData(m, mr)
         for c in cands:
             r = settle_item(c, dat)
+            if c["family"] not in acc:          # the fixed products use the ALLUP factors
+                continue
             a = acc[c["family"]]
             a[0] += r["stake"]
             a[1] += (1 + c["exp_roi"]) * r["stake"]
@@ -1314,6 +1452,33 @@ def tune_thresholds(per_meeting, is_mis):
     return thr, grid, elim
 
 
+def tune_section_hits(per_meeting, is_mis):
+    """Per section, the minimum hit probability of SECTION_HIT_GRID with the best 2024-25 ROBUST
+    ROI (largest single payout removed) of that section's picks.  Returns (min_hit, rows)."""
+    out, rows = {}, []
+    for sec, grid in SECTION_HIT_GRID.items():
+        best = None
+        for mh in grid:
+            cfg = _cfg({"section_min_hit": {**SECTION_MIN_HIT, sec: mh}})
+            rr = []
+            for mi in is_mis:
+                cs = [c for c in per_meeting[mi] if _section_pool(c) == sec]
+                for c in select_section(cs, sec, cfg):
+                    r = c["res"]
+                    rr.append({"mi": mi, "stake": r["stake"], "payout": r["payout"], "hit": r["hit"],
+                               "hit_prob": c["hit_prob"]})
+            sc = _score(rr)
+            row = {"section": sec, "min_hit": mh, **sc}
+            rows.append(row)
+            if sc["robust_roi"] is not None and (best is None or sc["robust_roi"] > best["robust_roi"] + 1e-12):
+                best = row
+        out[sec] = best["min_hit"] if best else SECTION_MIN_HIT[sec]
+        if best:
+            log.info("picks section %s: min_hit=%s n=%s roi=%+.3f robust=%+.3f", sec, best["min_hit"], best["n"],
+                     best["roi"], best["robust_roi"])
+    return out, rows
+
+
 def backtest_picks(conn, source="wf-combined-v1", write=True, path=None, report_path=None,
                    tune=True, data=None) -> dict:
     """Walk-forward history of make_picks (same code path as live) with the real dividends.
@@ -1342,25 +1507,31 @@ def backtest_picks(conn, source="wf-combined-v1", write=True, path=None, report_
         thr, grid, elim = tune_thresholds(per_meeting, is_mis0)
     else:
         thr, grid, elim = dict(THRESHOLDS), [], []
-    cfg = _cfg({"thresholds": thr})
+    is_mis = [i for i, m in enumerate(meetings) if m["season"] in IS_SEASONS]
+    oos_mis = [i for i, m in enumerate(meetings) if m["season"] in OOS_SEASONS]
+    if tune:
+        min_hit, sec_tuning = tune_section_hits(per_meeting, is_mis)
+    else:
+        min_hit, sec_tuning = dict(SECTION_MIN_HIT), []
+    cfg = _cfg({"thresholds": thr, "section_min_hit": min_hit})
     sel_rows, meet_rows = [], []
     for mi, (m, cands) in enumerate(zip(meetings, per_meeting)):
-        chosen, _ref = select_items(cands, cfg)
+        chosen = select_sections(cands, cfg)
         st_, py = 0.0, 0.0
-        for c in chosen:
+        for sec, c in chosen:
             r = c["res"]
-            sel_rows.append({"mi": mi, "season": m["season"], "family": c["family"], "kind": c["kind"],
-                             "pool": c["pool"], "structure": c["structure_zh"], "stake": r["stake"],
-                             "payout": r["payout"], "hit": r["hit"], "exp_roi": c["exp_roi"],
-                             "hit_prob": c["hit_prob"], "date": m["date"], "venue": m["venue"]})
+            sel_rows.append({"mi": mi, "season": m["season"], "section": sec, "family": c["family"],
+                             "kind": c["kind"], "pool": c["pool"], "structure": c["structure_zh"],
+                             "stake": r["stake"], "payout": r["payout"], "hit": r["hit"], "star": passes(c, cfg),
+                             "exp_roi": c["exp_roi"], "hit_prob": c["hit_prob"], "date": m["date"],
+                             "venue": m["venue"]})
             st_ += r["stake"]
             py += r["payout"]
         meet_rows.append({"mi": mi, "date": m["date"], "venue": m["venue"], "season": m["season"],
-                          "n_items": len(chosen), "stake": round(st_, 2), "payout": round(py, 2)})
+                          "n_items": len(chosen), "n_star": sum(1 for _s, c in chosen if passes(c, cfg)),
+                          "stake": round(st_, 2), "payout": round(py, 2)})
     # live/backtest parity: the last OOS meeting re-decided through make_picks from an independent load
     parity = None
-    oos_mis = [i for i, m in enumerate(meetings) if m["season"] in OOS_SEASONS]
-    is_mis = [i for i, m in enumerate(meetings) if m["season"] in IS_SEASONS]
     if oos_mis and conn is not None:
         mi = oos_mis[-1]
         m = meetings[mi]
@@ -1368,45 +1539,56 @@ def backtest_picks(conn, source="wf-combined-v1", write=True, path=None, report_
         live_like = live_like[live_like["race_id"].isin({r["race_id"] for r in m["races"].values()})]
         live_cfg = {**cfg, "n_races": m.get("n_races")}
         live = make_picks(live_like, None, live_cfg)
-        want = [(c["key"], round(c["exp_roi"], 4)) for c in select_items(per_meeting[mi], cfg)[0]]
-        got = [(it["key"], it["exp_roi"]) for it in live["items"] if it["grade"] == "精選"]
+        want = [(sec, c["key"], round(c["exp_roi"], 4)) for sec, c in select_sections(per_meeting[mi], cfg)]
+        got = [(it["section"], it["key"], it["exp_roi"]) for it in live["items"]]
         assert got == want, f"live/backtest picks mismatch on {m['date']} {m['venue']}: {got} vs {want}"
         cands_live, _ = enumerate_candidates(live_like, None, live_cfg)
         assert len(cands_live) == len(per_meeting[mi]), "candidate count mismatch"
-        parity = {"date": m["date"], "venue": m["venue"], "n_items": len(got), "keys": [k for k, _ in got],
+        parity = {"date": m["date"], "venue": m["venue"], "n_items": len(got), "keys": [k for _s, k, _ in got],
                   "n_candidates": len(cands_live)}
 
-    def block(mis_set, seasons):
+    def block(seasons):
         rr = [r for r in sel_rows if r["season"] in seasons]
         mis = [i for i in range(len(meetings)) if meetings[i]["season"] in seasons]
-        fam = {}
-        for f in FAMILIES:
-            x = [r for r in rr if r["family"] == f]
+        secs, stars = {}, {}
+        for code, _zh in SECTIONS:
+            x = [r for r in rr if r["section"] == code]
             if x:
-                fam[f] = {**_agg(x), "roi_ci": _boot_ci(x, mis)}
+                secs[code] = {**_agg(x), **{k: v for k, v in _score(x).items() if k == "robust_roi"},
+                              "roi_ci": _boot_ci(x, mis), "n_star": sum(1 for r in x if r["star"])}
+            y = [r for r in x if r["star"]]
+            if y:
+                stars[code] = {**_agg(y), "roi_ci": _boot_ci(y, mis)}
+        st_all = [r for r in rr if r["star"]]
         mrs = [m for m in meet_rows if m["season"] in seasons]
-        return {"overall": {**_agg(rr), "roi_ci": _boot_ci(rr, mis)}, "by_family": fam,
-                "n_meetings": len(mis), "zero_pick_days": sum(1 for m in mrs if not m["n_items"]),
-                "zero_pick_share": round(sum(1 for m in mrs if not m["n_items"]) / len(mrs), 4) if mrs else None,
+        return {"overall": {**_agg(rr), "roi_ci": _boot_ci(rr, mis)}, "by_section": secs,
+                "star": {"overall": {**_agg(st_all), "roi_ci": _boot_ci(st_all, mis)}, "by_section": stars},
+                "n_meetings": len(mis),
+                "zero_star_days": sum(1 for m in mrs if not m["n_star"]),
+                "zero_star_share": round(sum(1 for m in mrs if not m["n_star"]) / len(mrs), 4) if mrs else None,
                 "avg_items_per_day": round(float(np.mean([m["n_items"] for m in mrs])), 2) if mrs else None,
-                "avg_stake_per_day": round(float(np.mean([m["stake"] for m in mrs])), 2) if mrs else None}
+                "avg_stake_per_day": round(float(np.mean([m["stake"] for m in mrs])), 2) if mrs else None,
+                "avg_star_per_day": round(float(np.mean([m["n_star"] for m in mrs])), 2) if mrs else None}
 
-    by_season = {s: block(None, (s,)) for s in sorted({m["season"] for m in meetings})}
-    js = {"source": source, "generated_at": datetime.now(HKT).replace(tzinfo=None).isoformat(timespec="seconds"),
+    by_season = {s_: block((s_,)) for s_ in sorted({m["season"] for m in meetings})}
+    js = {"version": "sections-v4", "source": source,
+          "generated_at": datetime.now(HKT).replace(tzinfo=None).isoformat(timespec="seconds"),
           "period": [meetings[0]["date"], meetings[-1]["date"]] if meetings else None,
           "n_meetings": len(meetings), "n_candidates": int(n_cands),
           "thresholds": thr, "module_thresholds": THRESHOLDS,
           "matches_module": {f: (thr.get(f) == THRESHOLDS.get(f)) for f in FAMILIES},
+          "section_min_hit": min_hit, "module_section_min_hit": SECTION_MIN_HIT,
+          "section_matches_module": {k: min_hit.get(k) == SECTION_MIN_HIT.get(k) for k in SECTION_MIN_HIT},
+          "section_tuning": sec_tuning,
           "calibration_fit": {(f"{k[0]}_{k[1]}" if isinstance(k, tuple) else k): v for k, v in calib_fit.items()},
           "adjustment_fit": adj_fit, "adjustment_used": {"ret_adj": RET_ADJ, "hit_adj": HIT_ADJ},
           "elimination": elim,
           "calibration_used": {**{k: list(v) for k, v in CALIB.items()},
                                **{f"{k[0]}_{k[1]}": list(v) for k, v in MR_CALIB.items()}},
-          "config": {k: v for k, v in cfg.items() if k in ("unit_stake", "max_items", "max_total", "max_item_stake",
-                                                         "max_per_race", "max_allups", "allup_max_legs")},
-          "in_sample": block(None, IS_SEASONS), "oos": block(None, OOS_SEASONS), "by_season": by_season,
+          "config": {k: v for k, v in cfg.items() if k in ("unit_stake", "max_item_stake", "allup_max_legs")},
+          "in_sample": block(IS_SEASONS), "oos": block(OOS_SEASONS), "by_season": by_season,
           "grid": grid, "parity": parity, "meetings": meet_rows,
-          "selected": sel_rows[-400:],
+          "selected": sel_rows[-600:],
           "caveat": ("回測用最終獨贏賠率（開跑前先知道）推算所有彩池派彩；真實賽前約 2 小時嘅賠率會唔同，"
                      "結果偏樂觀。模型預測係 walk-forward（每次只用之前嘅賽果訓練）。門檻只用 2024-25 季調。")}
     if write:
@@ -1461,42 +1643,45 @@ def report_section(js) -> str:
             else:
                 L.append(f"| {FAMILY_ZH[f]} | 停用（最好 τ {bt['tau'] * 100:+.0f}%） | {bt['h'] * 100:.0f}% | {int(bt['n'])} | "
                          f"{_p(bt['roi'])} | {_p(bt['robust_roi'])} |")
-    L += ["", "### 結果（每個賽馬日實際入選嘅精選）", "",
-          "| 期間 | 賽馬日 | 冇精選日子 | 平均每日項目 | 平均每日注碼 | 項目數 | 命中率 | 注碼 | 派彩 | 回報率 | 95% 區間（按賽馬日 bootstrap） |",
-          "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|"]
-    for lab, b in (("2024-25（樣本內）", js["in_sample"]), ("2025-26 + 2026-27（樣本外）", js["oos"])):
-        o = b["overall"]
-        hit = "-" if o["hit_rate"] is None else f"{o['hit_rate'] * 100:.1f}%"
-        L.append(f"| {lab} | {b['n_meetings']} | {b['zero_pick_days']}（{(b['zero_pick_share'] or 0) * 100:.0f}%） | "
-                 f"{b['avg_items_per_day']} | ${b['avg_stake_per_day'] or 0:,.0f} | {o['n']} | {hit} | "
-                 f"${o['stake']:,.0f} | ${o['payout']:,.0f} | {_p(o['roi'])} | {_ci(o['roi_ci'])} |")
-    L += ["", "#### 按玩法", "",
-          "| 玩法 | 樣本內 項目 / 命中率 / 回報 | 樣本外 項目 | 樣本外 有入選嘅賽馬日 | 樣本外 命中率 | 樣本外 回報 | 樣本外 95% 區間 |",
-          "|---|---|---:|---:|---:|---:|---|"]
-    for f in FAMILIES:
-        a, b = js["in_sample"]["by_family"].get(f), js["oos"]["by_family"].get(f)
-        if not a and not b:
+    L += ["", "### 每種玩法各一個（第四版）", "",
+          "每個賽馬日每種玩法都揀一個（獨贏、位置各 2 個；「位置過關 6x63」同「位置Q 2x3 ×3 條」照用戶原本規則）："
+          "喺預計命中 ≥ 下限嘅組合入面揀估計回報最高嗰個；下限由規格建議值出發，用 2024-25「剔除最大一注派彩」回報輕微調校。"
+          "⭐ 值博 = 同時過上面嘅玩法門檻。「每日精選」機械人每日買晒所有玩法嘅精選，方便長期追蹤每種玩法。", "",
+          "| 玩法 | 命中下限 | 樣本內 項目 / 命中率 / 回報 | 樣本外 項目 | 樣本外 命中率 | 樣本外 回報 | 樣本外 回報（剔除最大一注） | 樣本外 95% 區間 | 樣本外 ⭐ 項目 / 回報 |",
+          "|---|---:|---|---:|---:|---:|---:|---|---|"]
+    mh = js.get("section_min_hit") or {}
+    for code, zh in SECTIONS:
+        a_ = js["in_sample"]["by_section"].get(code)
+        b_ = js["oos"]["by_section"].get(code)
+        sb = js["oos"]["star"]["by_section"].get(code)
+        if not a_ and not b_:
             continue
-        ia = "-" if not a else f"{a['n']} / {a['hit_rate'] * 100:.0f}% / {_p(a['roi'])}"
-        if b:
-            L.append(f"| {FAMILY_ZH[f]} | {ia} | {b['n']} | {b['n_meetings']} | {b['hit_rate'] * 100:.1f}% | "
-                     f"{_p(b['roi'])} | {_ci(b['roi_ci'])} |")
+        lim = "固定" if code in FIXED_SECTIONS else f"{mh.get(code, 0) * 100:.0f}%"
+        ia = "-" if not a_ else f"{a_['n']} / {a_['hit_rate'] * 100:.0f}% / {_p(a_['roi'])}"
+        st_ = "-" if not sb else f"{sb['n']} / {_p(sb['roi'])}"
+        if b_:
+            L.append(f"| {zh} | {lim} | {ia} | {b_['n']} | {b_['hit_rate'] * 100:.1f}% | {_p(b_['roi'])} | "
+                     f"{_p(b_.get('robust_roi'))} | {_ci(b_['roi_ci'])} | {st_} |")
         else:
-            L.append(f"| {FAMILY_ZH[f]} | {ia} | 0 | 0 | - | - | - |")
-    oo = js["oos"]["overall"]
+            L.append(f"| {zh} | {lim} | {ia} | 0 | - | - | - | - | {st_} |")
+    L += ["", "| 期間 | 賽馬日 | 平均每日項目 | 平均每日注碼 | 全部項目 回報 | 95% 區間 | ⭐ 項目 | ⭐ 回報 | ⭐ 95% 區間 | 冇 ⭐ 嘅日子 |",
+          "|---|---:|---:|---:|---:|---|---:|---:|---|---:|"]
+    for lab, b_ in (("2024-25（樣本內）", js["in_sample"]), ("2025-26 + 2026-27（樣本外）", js["oos"])):
+        o, so = b_["overall"], b_["star"]["overall"]
+        L.append(f"| {lab} | {b_['n_meetings']} | {b_['avg_items_per_day']} | ${b_['avg_stake_per_day'] or 0:,.0f} | "
+                 f"{_p(o['roi'])} | {_ci(o['roi_ci'])} | {so['n']} | {_p(so['roi'])} | {_ci(so['roi_ci'])} | "
+                 f"{b_['zero_star_days']}（{(b_['zero_star_share'] or 0) * 100:.0f}%） |")
+    oo, so = js["oos"]["overall"], js["oos"]["star"]["overall"]
     if oo["roi"] is not None:
-        if oo["roi"] < 0:
-            L += ["", f"**結論**：樣本內 {_p(js['in_sample']['overall']['roi'])} 係用同一季數據揀門檻嘅結果（偏樂觀）；"
-                  f"樣本外 {_p(oo['roi'])}、區間 {_ci(oo['roi_ci'])}，2024-25 嘅門檻效果冇延續落去，"
-                  "證據唔支持精選有長期優勢。"]
-        else:
-            L += ["", f"**結論**：樣本外 {_p(oo['roi'])}、區間 {_ci(oo['roi_ci'])}；區間跨過 0 嘅話仍然唔可以當係有優勢。"]
+        L += ["", f"**結論**：樣本外全部精選 {_p(oo['roi'])}（區間 {_ci(oo['roi_ci'])}）、⭐ 值博項目 {_p(so['roi'])}"
+              f"（區間 {_ci(so['roi_ci'])}）。每種玩法嘅精選只係「呢個玩法今日最好嘅選擇」，大部分玩法長期都係蝕緊抽水；"
+              "樣本內好睇嘅數字係用同一季數據調出嚟，唔可以當係有優勢。"]
     L += ["", "**點樣睇**：區間闊而且跨過 0 就代表冇證據有長期優勢（測試咗好多種玩法同門檻，好睇嘅數字好可能係運氣）。"
-          "冇精選嘅日子系統唔會落注（「每日精選」機械人當日唔買）。精選只係模型分析，**並非投注建議**。", ""]
+          "精選只係模型分析，**並非投注建議**。", ""]
     if js.get("parity"):
         p = js["parity"]
         L.append(f"實盤/回測一致性：{p['date']} {p['venue']} 用實盤路徑重新計，{p['n_candidates']} 個候選、"
-                 f"{p['n_items']} 項精選完全一樣。")
+                 f"{p['n_items']} 項精選（每種玩法）完全一樣。")
         L.append("")
     return "\n".join(L) + "\n"
 

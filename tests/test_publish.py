@@ -181,34 +181,36 @@ def validate_meeting(d):
         validate_picks(d["picks"])
 
 
+SECTION_ORDER = ["PLA_6x63", "QPL_2x3", "WIN", "PLA", "QIN", "QPL", "FCT", "TRI", "TCE", "FF", "QTT", "DBL", "TBL"]
+
+
 def validate_picks(p):
-    """SPEC_V2 「今日精選（第三版）」 shape - exactly what site/app.js reads."""
+    """今日精選 第四版 shape (sections + ⭐) - exactly what site/app.js reads."""
     if p is None:
         return
     _req(p, {"title": str, "generated_at": str, "method_note": str, "odds_note": str, "total_stake": NUM,
              "n_items": int, "total_payout": OPT_NUM, "total_profit": OPT_NUM, "items": list,
              "banker": (dict, type(None))}, "picks")
     assert p["title"] == "今日精選"
-    assert p["n_items"] == sum(1 for i in p["items"] if i["grade"] == "精選")
-    assert p["total_stake"] == pytest.approx(sum(i["stake"] for i in p["items"] if i["grade"] == "精選"))
-    if not p["n_items"]:
-        assert "今日冇玩法過門檻，冇精選" in p["method_note"]
-        assert sum(1 for i in p["items"] if i["grade"] == "參考") <= 3
+    assert p["n_items"] == len(p["items"])
+    assert p["total_stake"] == pytest.approx(sum(i["stake"] for i in p["items"]))
+    secs = [i["section"] for i in p["items"]]
+    assert secs == sorted(secs, key=SECTION_ORDER.index), "items grouped by section in order"
     for it in p["items"]:
-        _req(it, {"rank": int, "kind": str, "race_no": int, "races": list, "post_time": OPT_STR, "pool": str,
-                  "pool_zh": str, "structure_zh": str, "legs": list, "n_combos": int, "unit_stake": NUM,
-                  "stake": NUM, "hit_prob": NUM, "exp_roi": NUM, "est_return_if_hit": OPT_NUM,
-                  "odds_source": str, "grade": str, "reason": str, "result": (dict, type(None))}, "pick item")
+        _req(it, {"rank": int, "section": str, "section_zh": str, "star": bool, "kind": str, "race_no": int,
+                  "races": list, "post_time": OPT_STR, "pool": str, "pool_zh": str, "structure_zh": str,
+                  "legs": list, "n_combos": int, "unit_stake": NUM, "stake": NUM, "hit_prob": NUM, "exp_roi": NUM,
+                  "est_return_if_hit": OPT_NUM, "odds_source": str, "grade": str, "reason": str,
+                  "result": (dict, type(None))}, "pick item")
+        assert it["section"] in SECTION_ORDER
         assert it["kind"] in ("single", "multi_race", "allup")
         assert it["pool"] in ("WIN", "PLA", "QIN", "QPL", "FCT", "TRI", "TCE", "FF", "QTT", "DBL", "TBL")
-        assert it["odds_source"] in ("即時賠率", "估計賠率") and it["grade"] in ("精選", "參考")
+        assert it["odds_source"] in ("即時賠率", "估計賠率") and it["grade"] == "精選"
         assert 0 <= it["hit_prob"] <= 1 and it["stake"] == pytest.approx(it["n_combos"] * it["unit_stake"])
         assert it["race_no"] == max(it["races"])
         for k in ("ticket", "legs_raw", "key"):
             assert k not in it, f"internal field {k} published"
-        if it["grade"] == "參考":
-            assert "未過門檻" in it["reason"]
-        assert "上名率" not in it["reason"]
+        assert "上名率" not in it["reason"] and "參考" not in it["reason"]
         for l in it["legs"]:
             _req(l, {"race_no": int, "bankers": list, "selections": list, "positions": (list, type(None))}, "pick leg")
             for h in l["bankers"] + l["selections"]:
@@ -478,10 +480,6 @@ def test_site_static_files_review_fixes():
 
 
 # ------------------------------------------------------------------ 今日精選 (picks)
-OPEN_TH = {f: {"tau": -1.0, "h": 0.0} for f in ("WIN", "PLA", "QIN", "QPL", "FCT", "TRI", "TCE", "FF", "QTT",
-                                                 "DBL", "TBL", "ALLUP")}
-
-
 def _pred(c, date=PAST, venue="ST", run="pre-past"):
     import pandas as pd
     return pd.read_sql_query(
@@ -490,21 +488,24 @@ def _pred(c, date=PAST, venue="ST", run="pre-past"):
         "u.horse_no=p.horse_no WHERE p.run_id=? ORDER BY race_no, p.horse_no", c, params=(run,))
 
 
-def _run_daily_picks(c, th=None, run="pre-past"):
+def _run_daily_picks(c, run="pre-past", cfg=None):
     from hkjc import bots, picks
     pred = _pred(c)
-    pk = picks.make_picks(pred, None, {"thresholds": th or OPEN_TH, "max_items": 3})
+    pk = picks.make_picks(pred, None, cfg)
     picks.save_picks(c, run, PAST, "ST", pk)
     decs = bots.run_bots(c, run, PAST, "ST", pred, None, bots=["daily_picks"], picks=pk)
     return pk, decs
 
 
-def test_picks_from_daily_picks_run_and_settle(conn, tmp_path):
+def test_picks_sections_bought_and_settled(conn, tmp_path):
     pk, decs = _run_daily_picks(conn)
-    sel = [i for i in pk["items"] if i["grade"] == "精選"]
-    assert 1 <= len(sel) <= 3
+    # 2 races x 4 runners: no 6x63 / QPL / FF / QTT, but every pool that can be priced has its pick
+    secs = [i["section"] for i in pk["items"]]
+    assert {"WIN", "PLA", "QIN", "FCT", "TCE", "DBL"} <= set(secs) and "PLA_6x63" not in secs
+    assert secs.count("WIN") == 2 and secs.count("PLA") == 2
     bets_ = [d for d in decs if d["action"] == "bet"]
-    assert len(bets_) == len(sel) and {d["race_no"] for d in decs} >= {0, 1, 2}
+    assert len(bets_) == len(pk["items"])                       # the robot buys EVERY section
+    assert all(d["reason"].startswith("【") for d in bets_)
     out = tmp_path / "s"
     publish.export_site(conn, out)
     m = _load(out / "data" / "meetings" / f"{PAST}_ST.json")
@@ -512,39 +513,40 @@ def test_picks_from_daily_picks_run_and_settle(conn, tmp_path):
     validate_picks(p)
     assert [i["rank"] for i in p["items"]] == [i["rank"] for i in pk["items"]]
     assert p["total_payout"] is None and all(i["result"] is None for i in p["items"])   # tickets still open
-    assert p["items"][0]["legs"][0]["selections"][0]["horse_name"]                   # names from the card
+    assert p["items"][0]["legs"][0]["selections"][0]["horse_name"]
+    assert p["n_star"] == sum(1 for i in p["items"] if i["star"]) and p["legend"].startswith("⭐")
     assert p["banker"]["race_no"] in (1, 2) and p["banker"]["result"] is not None
     assert {mm["date"]: mm["has_picks"] for mm in _load(out / "data" / "index.json")["meetings"]}[PAST] is True
-    # daily_picks robot's card lists exactly these tickets
     db_ = {b["bot_id"]: b for b in m["bots"]}["daily_picks"]
-    assert db_["n_tickets"] == len(sel)
+    assert db_["n_tickets"] == len(pk["items"])
     paper.settle(conn, PAST)
     publish.export_site(conn, out)
     p = _load(out / "data" / "meetings" / f"{PAST}_ST.json")["picks"]
     validate_picks(p)
-    rows = conn.execute("SELECT payout, profit FROM paper_tickets WHERE bot_id='daily_picks' ORDER BY ticket_no").fetchall()
-    got = [i["result"] for i in p["items"] if i["grade"] == "精選"]
+    rows = conn.execute("SELECT payout FROM paper_tickets WHERE bot_id='daily_picks' ORDER BY ticket_no").fetchall()
+    got = [i["result"] for i in p["items"]]
     assert [g["payout"] for g in got] == pytest.approx([r[0] for r in rows])
     assert all(g["hypothetical"] is False for g in got)
     assert p["total_payout"] == pytest.approx(sum(r[0] for r in rows))
     assert p["total_profit"] == pytest.approx(p["total_payout"] - p["total_stake"])
+    det = json.loads(conn.execute("SELECT detail FROM paper_tickets WHERE bot_id='daily_picks' LIMIT 1").fetchone()[0])
+    assert det["notes"]["section"] and det["notes"]["section_zh"]
 
 
-def test_picks_reference_items_hypothetical_results(conn, tmp_path):
+def test_picks_unbought_item_hypothetical(conn, tmp_path):
     from hkjc import picks
-    pk, decs = _run_daily_picks(conn, th={f: None for f in OPEN_TH})
-    assert pk["n_items"] == 0 and pk["items"] and all(i["grade"] == "參考" for i in pk["items"])
-    assert "今日冇玩法過門檻，冇精選" in pk["method_note"]
-    assert not [d for d in decs if d["action"] == "bet"]
-    assert all("唔買" in d["reason"] for d in decs)
-    out = tmp_path / "s"
-    publish.export_site(conn, out)
-    p = _load(out / "data" / "meetings" / f"{PAST}_ST.json")["picks"]
+    pk, _ = _run_daily_picks(conn)
+    tid = conn.execute("SELECT ticket_id FROM paper_tickets WHERE bot_id='daily_picks' ORDER BY ticket_no LIMIT 1").fetchone()[0]
+    conn.execute("UPDATE paper_tickets SET status='void' WHERE ticket_id=?", (tid,))   # e.g. never bought
+    conn.commit()
+    paper.settle(conn, PAST)
+    p = publish.export_meeting(conn, PAST, "ST")["picks"]
     validate_picks(p)
-    for it, raw in zip(p["items"], pk["items"]):
-        assert it["result"]["hypothetical"] is True and "假設落注" in it["result"]["detail"]
-        assert it["result"]["payout"] == pytest.approx(picks.settle_item(raw, picks.DBData(conn, PAST, "ST"))["payout"])
-    assert p["total_payout"] == 0.0 and p["total_stake"] == 0
+    first = p["items"][0]
+    assert first["result"]["hypothetical"] is True and "假設落注" in first["result"]["detail"]
+    assert first["result"]["payout"] == pytest.approx(
+        picks.settle_item(pk["items"][0], picks.DBData(conn, PAST, "ST"))["payout"])
+    assert p["total_payout"] is None                        # not every item was really settled
 
 
 def test_picks_null_without_stored_picks(conn, tmp_path):
@@ -558,23 +560,20 @@ def test_picks_null_without_stored_picks(conn, tmp_path):
 def test_picks_latest_daily_picks_run_wins(conn, tmp_path):
     from hkjc import picks
     _run_daily_picks(conn, run="pre-a")
-    pk_b, _ = _run_daily_picks(conn, th={f: None for f in OPEN_TH}, run="pre-b")
+    pk_b, _ = _run_daily_picks(conn, run="pre-b", cfg={"families": ("WIN",)})
     conn.execute("UPDATE picks SET created_at='2000-01-01T00:00:00' WHERE run_id='pre-b'")  # older storage time
     conn.commit()
     m = publish.export_meeting(conn, PAST, "ST")
-    assert m["picks"]["n_items"] == 0           # the robot's latest decisions are pre-b's
-    assert picks.load_picks(conn, PAST, "ST")["n_items"] > 0
+    assert {i["section"] for i in m["picks"]["items"]} == {"WIN"}      # the robot's latest decisions are pre-b's
+    assert len(picks.load_picks(conn, PAST, "ST")["items"]) > 2
 
 
 def test_pre_report_picks_md(conn):
     from hkjc import pipeline
     pk, _ = _run_daily_picks(conn)
     md = pipeline._picks_md(pk)
-    assert md.startswith("## 今日精選") and "精選" in md and "全日最穩" in md and "入三甲機率" in md
-    assert "| 1 | 精選 |" in md
-    pk0, _ = _run_daily_picks(conn, th={f: None for f in OPEN_TH}, run="pre-z")
-    md0 = pipeline._picks_md(pk0)
-    assert "今日冇精選" in md0 and "參考" in md0
+    assert md.startswith("## 今日精選") and "| 1 | 獨贏 |" in md and "全日最穩" in md and "入三甲機率" in md
+    assert "⭐ = 分析估計回報過門檻" in md and "精選合共" in md
     assert pipeline._picks_md(None).startswith("## 今日精選")
 
 

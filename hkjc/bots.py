@@ -152,10 +152,10 @@ def _describe(bid, c):
         return ("每場揀獨贏賠率最低嗰隻（大熱），買獨贏 $10 + 位置 $10。完全唔用模型，"
                 "係對照組：睇吓其他機械人有冇贏到「跟大熱」。未有賠率時用模型首選代替。")
     if bid == "daily_picks":
-        return ("照「今日精選」落注：分析引擎（hkjc/picks.py）每場比較獨贏、位置、連贏、位置Q、二重彩、單T、"
-                "三重彩、四連環、四重彩、孖寶、三寶同過關嘅各種結構，按模型機率計預計命中同估計回報，"
-                "只有過咗門檻（用 2024-25 季歷史數據定）嘅「精選」項目先買（「參考」項目唔買），每注 $10，"
-                "每日最多 8 項、$1,500。冇精選嘅日子就成日唔買。用嚟追蹤精選嘅真實（模擬）成績。")
+        return ("照「今日精選」落注：分析引擎（hkjc/picks.py）每種玩法各揀一個——位置過關 6x63、位置Q 2x3 ×3 條"
+                "（用戶原本規則）、獨贏同位置各 2 個、連贏、位置Q、二重彩、單T、三重彩、四連環、四重彩、孖寶、三寶——"
+                "每個都係該玩法當日估計回報最高（預計命中唔太低）嘅組合，⭐ 值博係另外過咗門檻（用 2024-25 季歷史數據定）。"
+                "呢隻機械人每日全部都買（每注 $10，一日大約 $1,600），用嚟長期追蹤每種玩法嘅真實（模擬）成績。")
     if bid == "monkey":
         return ("每場隨機揀一隻馬買位置 $10，隨機種子用場次編號（race_id），所以結果可以重現。"
                 "代表「完全唔識睇馬」，長遠應該大約蝕抽水嗰個數，係最基本嘅對照組。")
@@ -173,7 +173,7 @@ _META = [
     ("pla_parlay", "位置過關", "揀全日最穩陣嘅 3 場做 3x4 過關"),
     ("favourite", "跟大熱（對照組）", "每場買大熱獨贏 + 位置"),
     ("monkey", "隨機猴子（對照組）", "每場隨機揀一隻買位置"),
-    ("daily_picks", "每日精選", "照今日精選落注，冇精選就唔買"),
+    ("daily_picks", "每日精選", "每種玩法各一個精選，全部照買追蹤成績"),
 ]
 
 
@@ -768,8 +768,9 @@ def _pick_selection(it):
 
 
 def _daily_picks(bid, c, ctxs, bank, pk):
+    """Buys EVERY 今日精選 item (one pick per play type / section) so each play type is tracked."""
     out = []
-    items = [it for it in (pk or {}).get("items") or [] if it.get("grade") == "精選"]
+    items = [it for it in (pk or {}).get("items") or [] if it.get("ticket")]
     notes = (pk or {}).get("race_notes") or {}
     bet_races = set()
     multi = []
@@ -777,25 +778,26 @@ def _daily_picks(bid, c, ctxs, bank, pk):
         rn = int(it["race_no"]) if it["kind"] == "single" else 0
         t = dict(it["ticket"])
         t["legs"] = [dict(l) for l in t["legs"]]
-        structure = f"#{it['rank']} {it['pool_zh']} {it['structure_zh']}"
+        sec = it.get("section_zh") or it["pool_zh"]
+        star = "⭐值博 " if it.get("star") else ""
+        structure = f"#{it['rank']} {sec} {it['structure_zh']}"
+        reason = f"【{sec}】{star}{it['reason']}"
+        t["notes"] = {**(t.get("notes") or {}), "section_zh": sec}
         if rn:
             bet_races.add(rn)
         else:
             multi.append(it)
-        out.append(_bet_or_broke(bank, bid, rn, structure, _pick_selection(it), t, it["reason"]))
+        out.append(_bet_or_broke(bank, bid, rn, structure, _pick_selection(it), t, reason))
     for x in ctxs:
         if x.rn in bet_races:
             continue
         why = notes.get(str(x.rn)) or notes.get(x.rn)
-        if not items:
-            head = f"今日冇精選（{len(ctxs)} 場都冇玩法過門檻）"
-        else:
-            head = f"第{x.rn}場冇精選"
+        head = f"第{x.rn}場冇單場精選" if items else f"今日冇精選（{len(ctxs)} 場都冇可以計算嘅玩法）"
         out.append(_dec(bid, x.rn, "skip", "精選", [], 0.0,
-                        head + ("：" + why if why else f"（{x.n} 匹出賽，冇可以計價嘅玩法）") + " → 唔買"))
+                        head + ("：" + why if why else f"（{x.n} 匹出賽）") + " → 呢場唔買單場注"))
     if not multi:
         out.append(_dec(bid, 0, "skip", "跨場／過關精選", [], 0.0,
-                        f"今日冇跨場／過關精選（孖寶、三寶、過關都未過門檻；共 {len(items)} 項單場精選）→ 唔買"))
+                        f"今日冇跨場／過關精選（共 {len(items)} 項單場精選）→ 唔買"))
     return out
 
 

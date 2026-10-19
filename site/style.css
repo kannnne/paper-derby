@@ -752,3 +752,20 @@ details.tk-why[open] > summary { display: none; }
   .pk-hs small { max-width: 6em; }
   .tk { grid-template-columns: 50px minmax(0, 1fr) auto; gap: 2px 8px; padding-right: 8px; }
 }
+
+/* ---- 今日精選 第四版: sections (每種玩法各一個) + ⭐ 值博 */
+.pk-legend { margin: 2px 16px 4px 22px; padding: 6px 10px; border-radius: 8px; background: rgba(255, 200, 61, .12); color: var(--text-2); }
+.pk-sec { margin: 6px 0 2px; }
+.pk-sec-h { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 10px 12px 0 18px; padding: 0 0 4px; font-size: 14px;
+  border-bottom: 2px solid var(--pc); }
+.pk-sec-h small { color: var(--text-2); font-weight: 600; }
+.pk-sec-r { margin-left: auto; font-size: 13px; font-weight: 600; }
+.pk-sec .pk-items { padding-top: 6px; }
+.pk-star { font-size: 11px; font-weight: 900; padding: 1px 8px; border-radius: 999px; background: #ffc83d; color: #2a1d00; white-space: nowrap;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .12) inset; }
+.pk-star.sm { font-size: 11px; padding: 0 7px; }
+@media (max-width: 640px) {
+  .pk-legend { margin-left: 12px; margin-right: 8px; }
+  .pk-sec-h { margin-left: 12px; margin-right: 8px; }
+  .pk-sec-r { margin-left: 0; width: 100%; }
+}

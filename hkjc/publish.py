@@ -40,22 +40,23 @@ Files written (formats per SPEC_V2 "Dashboard"; additions are marked [+] below):
     payout/profit are null while a ticket is open.  Void (replaced) tickets are left out.
     (The old 「賽後補做」 ``note`` field is gone: meeting files carry no such notice any more.)
 
-    [+] ``picks`` (今日精選, SPEC_V2 第三版): the analysis-driven picks of hkjc.picks.make_picks as
-    stored (table ``picks``) by the pre-meeting run whose ``daily_picks`` robot decisions are current
+    [+] ``picks`` (今日精選, 第四版「每種玩法各一個」): the picks of hkjc.picks.make_picks as stored
+    (table ``picks``) by the pre-meeting run whose ``daily_picks`` robot decisions are current
     (fallback: the latest stored picks), internal fields stripped, results added:
-      {title:"今日精選", generated_at, method_note, odds_note, total_stake, n_items,
-       total_payout|null, total_profit|null,
-       items:[{rank, kind:"single"|"multi_race"|"allup", race_no, races, post_time, pool, pool_zh,
-               structure_zh, legs:[{race_no, bankers:[{horse_no, horse_name, score}], selections:[...],
-               positions:[[horse_no...]]|null, [pool_zh], [hit]}], n_combos, unit_stake, stake, hit_prob,
-               exp_roi, est_return_if_hit, odds_source:"即時賠率"|"估計賠率", grade:"精選"|"參考", reason,
+      {title:"今日精選", generated_at, method_note, odds_note, legend, sections:[{section, section_zh}],
+       total_stake, n_items, n_star, total_payout|null, total_profit|null,
+       items:[{rank, section (PLA_6x63 QPL_2x3 WIN PLA QIN QPL FCT TRI TCE FF QTT DBL TBL), section_zh,
+               star (⭐ 值博: passes the tuned threshold), kind:"single"|"multi_race"|"allup", race_no, races,
+               post_time, pool, pool_zh, structure_zh, legs:[{race_no, bankers:[{horse_no, horse_name, score}],
+               selections:[...], positions:[[horse_no...]]|null, [pool_zh], [hit]}], n_combos, unit_stake, stake,
+               hit_prob, exp_roi, est_return_if_hit, odds_source:"即時賠率"|"估計賠率", grade:"精選", reason,
                result:{hit, payout, profit, detail, hypothetical}|null}],
        banker:{race_no, post_time, horse_no, horse_name, jockey, score, p_place, pla_odds, reason,
                result:{finish_pos, placed}|null}|null}
-    精選 results come from the daily_picks robot's settled tickets; 參考 items (never bought) get a
-    hypothetical result from the published dividends (hypothetical=true).  total_payout is set once
-    every 精選 item is settled (0 when the meeting finished without 精選).  picks is null when no
-    picks were stored for the meeting.
+    Results come from the daily_picks robot's settled tickets (it buys every item); an item the robot
+    could not buy (e.g. 資金不足) gets a hypothetical result from the published dividends
+    (hypothetical=true) and keeps the totals null.  total_payout is set once every item is settled.
+    picks is null when no picks were stored for the meeting.
 
 [+] ``site/data/bots/<bot_id>.json``
     {bot_id, n_tickets, tickets:[{date, venue, venue_zh, ...same ticket fields as above}]}  (newest first;
@@ -570,11 +571,10 @@ def _mr_leg_hits(byrn, legs):
 
 
 def build_picks(conn, date, venue, races) -> dict | None:
-    """「今日精選」 block of a meeting file (SPEC_V2 第三版) from the picks stored by the
-    pre-meeting run whose daily_picks robot decisions are current, with results added:
-    精選 items from the daily_picks robot's settled tickets, 參考 items (never bought)
-    hypothetically from the published dividends (``result.hypothetical = true``).
-    None when the meeting has no stored picks."""
+    """「今日精選」 block of a meeting file (第四版, sections + ⭐) from the picks stored by the
+    pre-meeting run whose daily_picks robot decisions are current, with results from the
+    daily_picks robot's settled tickets (an unbought item: hypothetical result from the published
+    dividends, ``result.hypothetical = true``).  None when the meeting has no stored picks."""
     stored = _stored_picks(conn, date, venue)
     if not stored:
         return None
@@ -587,7 +587,7 @@ def build_picks(conn, date, venue, races) -> dict | None:
     all_done, tot_pay = True, 0.0
     for it in stored.get("items") or []:
         res = None
-        t = tickets.get(it.get("key")) if it.get("grade") == "精選" else None
+        t = tickets.get(it.get("key"))
         leg_hits = None
         if t is not None and t["status"] == "settled":
             det = _json(t["detail"], {}) or {}
@@ -595,21 +595,19 @@ def build_picks(conn, date, venue, races) -> dict | None:
             pay, prof = _f(t["payout"], 2), _f(t["profit"], 2)
             res = {"hit": nw > 0, "payout": pay, "profit": prof,
                    "detail": (f"中 {nw} 注，派彩 ${pay:,.1f}" if nw else "冇中"), "hypothetical": False}
-        elif (t is None or it.get("grade") != "精選") and _races_done(byrn, it) and it.get("legs_raw"):
+        elif t is None and _races_done(byrn, it) and it.get("legs_raw"):
             try:
                 r = _picks.settle_item(it, data)
                 res = {"hit": r["hit"], "payout": r["payout"], "profit": r["profit"],
-                       "detail": ("假設落注（只供參考，冇落注）：" if it.get("grade") != "精選"
-                                  else "機械人冇落呢項（例如資金不足），假設落注：") + r["detail"],
+                       "detail": "機械人冇落呢項（例如資金不足），假設落注：" + r["detail"],
                        "hypothetical": True}
                 leg_hits = r.get("leg_hits")
             except Exception as e:      # pragma: no cover - never break the export
                 log.warning("picks result failed for %s: %s", it.get("key"), e)
-        if it.get("grade") == "精選":
-            if res is None or res.get("hypothetical"):
-                all_done = False
-            else:
-                tot_pay += res["payout"] or 0.0
+        if res is None or res.get("hypothetical"):
+            all_done = False
+        else:
+            tot_pay += res["payout"] or 0.0
         pub = {k: v for k, v in it.items() if k not in ("ticket", "legs_raw", "key", "family", "spec")}
         legs = []
         for i, l in enumerate(pub.get("legs") or []):
@@ -632,7 +630,7 @@ def build_picks(conn, date, venue, races) -> dict | None:
         pub["legs"] = legs
         pub["result"] = res
         items.append(pub)
-    sel = [i for i in items if i.get("grade") == "精選"]
+    sel = items
     meeting_done = bool(byrn) and all(r.get("result") for r in byrn.values())
     total = round(sum(i["stake"] or 0 for i in sel), 2)
     if sel and all_done:
@@ -656,6 +654,7 @@ def build_picks(conn, date, venue, races) -> dict | None:
     for it in items:
         it["post_time"] = it.get("post_time") or (byrn.get(int(it["races"][0])) or {}).get("post_time")
     out.update({"title": PICKS_TITLE, "items": items, "banker": banker, "n_items": len(sel), "total_stake": total,
+                "n_star": sum(1 for i in sel if i.get("star")),
                 "total_payout": total_payout,
                 "total_profit": None if total_payout is None else round(total_payout - total, 2)})
     return out
