@@ -108,18 +108,6 @@ def conn(tmp_path):
     c.close()
 
 
-@pytest.fixture()
-def backtest_file(tmp_path):
-    p = tmp_path / "bot_backtest.json"
-    p.write_text(json.dumps({"place_only": {
-        "name": "位置專家", "in_sample": {"period": "2024-25", "stake": 1000.0, "returns": 900.0, "roi": -0.1},
-        "oos": {"period": "2025-26 + 2026-27", "stake": 1000.0, "returns": 800.0, "roi": -0.2,
-                "roi_ci": [-0.3, -0.1], "hit_rate": 0.5, "max_drawdown": 300.0},
-        "curve": [{"date": "2025-09-01", "bankroll": 10000.0}, {"date": "2025-09-07", "venue": "ST", "bankroll": 9990.0}],
-        "caveat": "回測用最終賠率"}}, ensure_ascii=False), encoding="utf-8")
-    return p
-
-
 # ------------------------------------------------------------------ minimal SPEC_V2 validator
 NUM = (int, float)
 OPT_NUM = (int, float, type(None))
@@ -146,13 +134,10 @@ def validate_index(d):
         assert m["file"] == f"data/meetings/{m['date']}_{m['venue']}.json"
     for b in d["bots"]:
         _req(b, {"id": str, "name": str, "style": str, "description": str, "bankroll": NUM, "start_bankroll": NUM,
-                 "live": dict, "backtest": (dict, type(None))}, "bots[]")
+                 "live": dict}, "bots[]")
+        assert "backtest" not in b, "backtest figures must not be published (live paper results only)"
         _req(b["live"], {"n_meetings": int, "stake": NUM, "returns": NUM, "profit": NUM, "roi": OPT_NUM,
                          "hit_rate": OPT_NUM}, "bots[].live")
-        if b["backtest"] is not None:
-            _req(b["backtest"], {"period": OPT_STR, "stake": OPT_NUM, "returns": OPT_NUM, "roi": OPT_NUM,
-                                 "roi_ci": list, "oos_roi": OPT_NUM}, "bots[].backtest")
-            assert len(b["backtest"]["roi_ci"]) == 2
 
 
 def validate_meeting(d):
@@ -189,11 +174,10 @@ def validate_meeting(d):
 def validate_history(d):
     _req(d, {"updated_at": str, "bots": list}, "history")
     for b in d["bots"]:
-        _req(b, {"bot_id": str, "live": list, "backtest": list}, "history.bots")
+        _req(b, {"bot_id": str, "live": list}, "history.bots")
+        assert "backtest" not in b, "backtest curves must not be published"
         for p in b["live"]:
             _req(p, {"date": str, "venue": str, "stake": NUM, "payout": NUM, "profit": NUM, "bankroll": NUM}, "live pt")
-        for p in b["backtest"]:
-            _req(p, {"date": str, "bankroll": NUM}, "backtest pt")
 
 
 def _load(p):
@@ -203,9 +187,9 @@ def _load(p):
 
 
 # ------------------------------------------------------------------ tests
-def test_export_schema(conn, tmp_path, backtest_file):
+def test_export_schema(conn, tmp_path):
     out = tmp_path / "site"
-    files = publish.export_site(conn, out, backtest_path=backtest_file)
+    files = publish.export_site(conn, out)
     names = sorted(p.name for p in files if p.parent.name != "bots")
     assert names == sorted(["index.json", "bot_history.json", f"{PAST}_ST.json", f"{FUT}_HV.json"])
     assert sorted(p.stem for p in files if p.parent.name == "bots") == sorted(b["id"] for b in publish.bot_meta())
@@ -223,14 +207,12 @@ def test_export_schema(conn, tmp_path, backtest_file):
     # PLA 1 & 4 in race 1: horse 1 placed (14.0), horse 4 did not -> $14 back on $20
     assert po["live"]["stake"] == 20.0 and po["live"]["returns"] == 14.0 and po["live"]["profit"] == -6.0
     assert po["bankroll"] == 9994.0 and po["live"]["n_meetings"] == 1 and po["live"]["hit_rate"] == 1.0
-    assert po["backtest"]["oos_roi"] == -0.2 and po["backtest"]["roi"] == -0.15 and po["backtest"]["roi_ci"] == [-0.3, -0.1]
     assert bots["win_value"]["live"]["open_stake"] == 10.0 and bots["win_value"]["live"]["stake"] == 0
-    assert bots["monkey"]["backtest"] is None
 
 
-def test_export_meeting_content(conn, tmp_path, backtest_file):
+def test_export_meeting_content(conn, tmp_path):
     out = tmp_path / "site"
-    publish.export_site(conn, out, backtest_path=backtest_file)
+    publish.export_site(conn, out)
     m = _load(out / "data" / "meetings" / f"{PAST}_ST.json")
     assert m["status"] == "results" and m["model_version"] == "test-model-v1"
     r1 = m["races"][0]
@@ -263,7 +245,7 @@ def test_export_meeting_content(conn, tmp_path, backtest_file):
     h = {b["bot_id"]: b for b in hist["bots"]}
     assert h["place_only"]["live"] == [{"date": PAST, "venue": "ST", "stake": 20.0, "payout": 14.0,
                                         "profit": -6.0, "bankroll": 9994.0}]
-    assert h["place_only"]["backtest"][-1]["bankroll"] == 9990.0
+    assert "backtest" not in h["place_only"]
 
 
 def test_latest_run_only(conn, tmp_path):
@@ -278,9 +260,9 @@ def test_latest_run_only(conn, tmp_path):
     assert m["scores_run_id"] == "pre-past" and m["races"][0]["horses"][0]["score"] == 75.0
 
 
-def test_privacy_scan(conn, tmp_path, backtest_file):
+def test_privacy_scan(conn, tmp_path):
     out = tmp_path / "site"
-    files = publish.export_site(conn, out, backtest_path=backtest_file)
+    files = publish.export_site(conn, out)
     assert files
     for p in files:
         txt = p.read_text(encoding="utf-8")
@@ -340,6 +322,18 @@ def test_publish_never_raises_on_export_error(tmp_path):
     c.close()
     res = publish.publish(c, site_dir=tmp_path / "site", config_path=tmp_path / "p.json")
     assert res["status"] == "export_failed" and res["error"]
+
+
+def test_no_backtest_published(conn, tmp_path):
+    """The public dashboard shows live paper results only: no exported file carries backtest
+    figures or curves (data/bot_backtest.json is internal research output)."""
+    assert not hasattr(publish, "load_bot_backtest")
+    out = tmp_path / "site"
+    files = publish.export_site(conn, out)
+    for p in files:
+        txt = p.read_text(encoding="utf-8")
+        assert '"backtest"' not in txt and "oos_roi" not in txt and "roi_ci" not in txt, p.name
+        assert "回測" not in txt, p.name
 
 
 # ------------------------------------------------------------------ review fixes
@@ -422,6 +416,9 @@ def test_site_static_files_review_fixes():
     assert "position: relative" in rule
     html = (site / "index.html").read_text(encoding="utf-8")
     assert re.search(r'app\.js\?v=\d+', html) and re.search(r'style\.css\?v=\d+', html)
+    # live paper results only: no backtest display anywhere on the site
+    for txt in (js, html):
+        assert "backtest" not in txt and "回測" not in txt and "樣本外" not in txt
     assert ".DS_Store" in (site / ".gitignore").read_text(encoding="utf-8")
     for txt in (js, css, html):
         assert Path.home().name not in txt and "/Users/" not in txt

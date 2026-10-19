@@ -106,7 +106,7 @@ def _ev_txt(x):
     return "唔睇期望值" if x is None else f"≥{x:.2f}"
 
 
-_LOW_EV_NOTE = "（門檻低過 1，因為賽前估計賠率通常偏保守；數值係用 2024-25 季回測調出嚟）"
+_LOW_EV_NOTE = "（門檻低過 1，因為賽前估計賠率通常偏保守；數值係用 2024-25 季歷史數據調出嚟）"
 
 
 def _describe(bid, c):

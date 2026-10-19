@@ -27,15 +27,14 @@
   var STATUS_ZH = { pre: "賽前", results: "已有賽果", abandoned: "取消" };
 
   var app = document.getElementById("app");
-  var state = { index: null, meetings: {}, history: null, timers: [], prefs: { mode: "live", sort: "no" }, cleanup: [] };
+  var state = { index: null, meetings: {}, history: null, timers: [], prefs: { sort: "no" }, cleanup: [], homeRace: {} };
   try {
     var saved = JSON.parse(localStorage.getItem("pd-prefs") || "{}");
     if (saved && typeof saved === "object") {
-      if (saved.mode === "live" || saved.mode === "backtest") state.prefs.mode = saved.mode;
       if (saved.sort === "no" || saved.sort === "score") state.prefs.sort = saved.sort;
     }
   } catch (e) { /* storage unavailable: defaults */ }
-  function savePrefs() { try { localStorage.setItem("pd-prefs", JSON.stringify(state.prefs)); } catch (e) { /* ignore */ } }
+  function savePrefs() { try { localStorage.setItem("pd-prefs", JSON.stringify({ sort: state.prefs.sort })); } catch (e) { /* ignore */ } }
 
   // ------------------------------------------------------------------ formatting (never render null/NaN)
   function ok(v) { return v !== null && v !== undefined && !(typeof v === "number" && !isFinite(v)); }
@@ -188,12 +187,49 @@
   }
 
   // ------------------------------------------------------------------ home
+  function sortedMeetings(idx) {   // newest first
+    return (idx.meetings || []).slice().sort(function (a, b) {
+      return a.date < b.date ? 1 : a.date > b.date ? -1 : String(a.venue).localeCompare(String(b.venue));
+    });
+  }
+  // Meeting whose horse scores the home page shows: the upcoming meeting once its pre-race run has
+  // published scores, otherwise the latest past meeting with scores (null = none yet).
+  function scoresMeeting(idx) {
+    var ms = sortedMeetings(idx);
+    var nm = idx.next_meeting;
+    if (!ms.some(function (m) { return typeof m.has_scores === "boolean"; })) return defaultMeeting(idx);   // older export
+    if (nm) {
+      var n = ms.filter(function (m) { return m.date === nm.date && m.venue === nm.venue && m.has_scores; })[0];
+      if (n) return n;
+    }
+    return ms.filter(function (m) { return m.has_scores && (!nm || m.date <= nm.date); })[0] || null;
+  }
+  function preRaceEta(nm) {   // 「約 HH:MM」= first post time − 2 h (Hong Kong time)
+    var d = nm && parseHK(nm.first_post_time);
+    if (!d) return "";
+    return "（約 " + new Date(d.getTime() + 6 * 3600e3).toISOString().slice(11, 16) + "）";
+  }
+  function nextScoresNote(idx) {
+    var nm = idx.next_meeting;
+    if (!nm) return "評分會喺下一個賽馬日第一場開跑前約 2 小時自動出。";
+    return "下一個賽馬日（" + shortDate(nm.date) + " " + esc(nm.venue_zh || VENUE_ZH[nm.venue] || nm.venue) + "）嘅評分會喺第一場開跑前約 2 小時" +
+      preRaceEta(nm) + "自動出。";
+  }
+
   function pageHome() {
     var idx = state.index;
     var nm = idx.next_meeting;
     var nmFile = nm && (idx.meetings || []).filter(function (m) { return m.date === nm.date && m.venue === nm.venue; })[0];
     var html = demoBanner(idx);
-    html += '<section class="hero" aria-label="下一個賽馬日">';
+
+    // ① 賽馬日紀錄 (newest first) — very top
+    html += '<section class="section top-section" aria-labelledby="mtg-h"><div class="section-head"><span class="kicker">MEETINGS</span><h2 id="mtg-h">賽馬日紀錄</h2>' +
+      '<span class="muted small">最新排最前</span></div><div class="mtg-list" id="mtg-list"></div><div id="mtg-more"></div></section>';
+    // ② 最新賽馬日馬匹評分 (one meeting file, lazy)
+    html += '<section class="section" aria-labelledby="hs-h"><div class="section-head"><span class="kicker">SCORES</span><h2 id="hs-h">最新馬匹評分</h2>' +
+      '<span class="muted small" id="hs-sub"></span></div><div id="home-scores"><div class="panel loading">載入評分…</div></div></section>';
+    // ③ 下一個賽馬日
+    html += '<section class="hero section" aria-label="下一個賽馬日">';
     if (nm) {
       html += '<div class="lower-third"><div class="lt-tag"><span>下一個賽馬日</span></div><div class="lt-body"><span>' +
         esc(nm.venue_zh || VENUE_ZH[nm.venue] || nm.venue) + (nm.venue === "HV" ? " · 夜賽" : " · 日賽") + "</span></div></div>";
@@ -206,43 +242,141 @@
       html += '<h1>暫時未有已公佈嘅賽馬日</h1><div class="meta">排位表公佈後會自動更新。</div>';
     }
     html += "</section>";
-
-    html += '<section class="section" aria-labelledby="lb-h"><div class="section-head"><span class="kicker">LIVE</span><h2 id="lb-h">機械人賽道排行榜</h2><span class="spacer"></span>' +
-      '<div class="seg" role="group" aria-label="排行榜數據">' +
-      '<button type="button" data-mode="live" aria-pressed="' + (state.prefs.mode === "live") + '">實盤（模擬）</button>' +
-      '<button type="button" data-mode="backtest" aria-pressed="' + (state.prefs.mode === "backtest") + '">回測</button></div></div>' +
-      '<div id="track"></div><div id="lb-table" class="section"></div></section>';
-
-    html += '<section class="section" aria-labelledby="curve-h"><div class="section-head"><h2 id="curve-h">資金曲線</h2><span class="muted small" id="curve-sub"></span></div>' +
+    // ④ 排行榜 + 資金曲線 (live paper results only)
+    html += '<section class="section" aria-labelledby="lb-h"><div class="section-head"><span class="kicker">LIVE</span><h2 id="lb-h">機械人賽道排行榜</h2>' +
+      '<span class="muted small">實盤（模擬投注）</span></div><div id="track"></div><div id="lb-table" class="section"></div></section>';
+    html += '<section class="section" aria-labelledby="curve-h"><div class="section-head"><h2 id="curve-h">資金曲線</h2><span class="muted small">實盤：每個已結算賽馬日後嘅模擬資金</span></div>' +
       '<div class="panel pad"><div id="curve"></div></div></section>';
-
-    html += '<section class="section" aria-labelledby="mtg-h"><div class="section-head"><h2 id="mtg-h">賽馬日紀錄</h2></div><div class="grid" id="mtg-list" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))"></div></section>';
     app.innerHTML = html;
 
     if (nm) startCountdown(document.getElementById("countdown"), parseHK(nm.first_post_time || nm.date));
-    app.querySelectorAll(".seg [data-mode]").forEach(function (b) {
-      b.addEventListener("click", function () {
-        state.prefs.mode = b.getAttribute("data-mode"); savePrefs();
-        app.querySelectorAll(".seg [data-mode]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
-        drawBoard(); drawCurves();
-      });
-    });
+    var shown = scoresMeeting(idx);
     var ml = document.getElementById("mtg-list");
     var MAX_CARDS = 12;   // a season has ~90 meetings: older ones via the meeting page's selector
-    var allM = idx.meetings || [];
+    var allM = sortedMeetings(idx);
     ml.innerHTML = allM.slice(0, MAX_CARDS).map(function (m) {
-      return '<a class="panel pad" style="text-decoration:none;display:block" href="#/meeting/' + meetingId(m) + '">' +
-        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + shortDate(m.date) + " " + esc(m.venue_zh || VENUE_ZH[m.venue]) + "</b>" +
+      var isNext = nm && m.date === nm.date && m.venue === nm.venue;
+      return '<a class="mtg-card' + (isNext ? " is-next" : "") + '" href="#/meeting/' + meetingId(m) + '">' +
+        '<div class="mc-top"><b>' + shortDate(m.date) + " " + esc(m.venue_zh || VENUE_ZH[m.venue] || m.venue) + "</b>" +
         '<span class="chip status-' + esc(m.status) + '">' + esc(STATUS_ZH[m.status] || m.status) + "</span></div>" +
-        '<div class="muted small" style="margin-top:4px">' + dateZh(m.date) + (ok(m.n_races) ? " · " + m.n_races + " 場" : "") + "</div></a>";
-    }).join("") || '<div class="empty">未有紀錄</div>';
+        '<div class="muted small">' + dateZh(m.date) + (ok(m.n_races) ? " · " + m.n_races + " 場" : "") + "</div>" +
+        '<div class="mc-tags">' + (isNext ? '<span class="chip gold">下一個</span>' : "") +
+        (m.has_scores ? '<span class="chip">有評分</span>' : "") + (m.has_decisions ? '<span class="chip">機械人已決定</span>' : "") + "</div></a>";
+    }).join("") || '<div class="panel empty">未有紀錄</div>';
     if (allM.length > MAX_CARDS) {
-      ml.insertAdjacentHTML("afterend", '<p class="small muted">只列出最近 ' + MAX_CARDS + " 個賽馬日（共 " + allM.length +
-        ' 個）；較早嘅可以喺<a href="#/meeting/' + meetingId(allM[MAX_CARDS]) + '">賽馬日頁</a>用選單揀。</p>');
+      document.getElementById("mtg-more").innerHTML = '<p class="small muted">只列出最近 ' + MAX_CARDS + " 個賽馬日（共 " + allM.length +
+        ' 個）；較早嘅可以喺<a href="#/meeting/' + meetingId(allM[MAX_CARDS]) + '">賽馬日頁</a>用選單揀。</p>';
     }
-
+    drawHomeScores(document.getElementById("home-scores"), shown);
     drawBoard();
     loadHistory().then(drawCurves);
+  }
+
+  // ------------------------------------------------------------------ home: latest horse scores
+  function drawHomeScores(el, pick) {
+    var idx = state.index;
+    var sub = document.getElementById("hs-sub");
+    function placeholder() {
+      if (sub) sub.textContent = "";
+      el.innerHTML = '<div class="panel pad hs-empty"><div class="hs-empty-icon" aria-hidden="true">' + cloth("?", "") + "</div><div><b>未有馬匹評分</b>" +
+        '<p class="muted small">' + nextScoresNote(idx) + "到時呢度會自動顯示每場每匹馬嘅評分同理由。</p></div></div>";
+    }
+    if (!pick) { placeholder(); return; }
+    var id = meetingId(pick);
+    loadMeeting(id).then(function (m) {
+      if (!document.body.contains(el)) return;
+      var races = (m.races || []).filter(function (r) { return (r.horses || []).some(function (h) { return ok(h.score); }); });
+      if (!races.length) { placeholder(); return; }
+      var nm = idx.next_meeting;
+      var isNext = nm && m.date === nm.date && m.venue === nm.venue;
+      if (sub) sub.textContent = isNext ? "下一個賽馬日" : "最近一個有評分嘅賽馬日";
+      var rn = state.homeRace[id];
+      if (!races.some(function (r) { return r.race_no === rn; })) {
+        rn = races[0].race_no;
+        if (m.status === "pre") {   // first race not yet run
+          var now = Date.now();
+          var up = races.filter(function (r) { var t = parseHK(r.post_time); return t && t.getTime() > now; })[0];
+          if (up) rn = up.race_no;
+        }
+      }
+      var html = '<div class="hs-head"><div><b class="hs-title">' + meetingName(m) + '</b> <span class="chip status-' + esc(m.status) + '">' +
+        esc(STATUS_ZH[m.status] || m.status) + "</span>" +
+        '<div class="muted small">' + races.length + " 場有評分 · 評分生成時間 " + esc(m.generated_at ? String(m.generated_at).replace("T", " ").slice(0, 16) : DASH) +
+        "（香港時間）</div></div>" +
+        '<a class="hs-link" id="hs-link" href="#/meeting/' + id + "/" + rn + '">完整賽馬日頁 →</a></div>';
+      if (!isNext && nm) html += '<p class="small muted hs-note">' + nextScoresNote(idx) + "到時呢度會自動換成新賽馬日。</p>";
+      html += '<div class="hs-tabs" role="tablist" aria-label="場次">' + races.map(function (r) {
+        return '<button type="button" role="tab" id="hs-tab-' + r.race_no + '" data-rn="' + r.race_no + '" aria-controls="hs-race" aria-selected="' + (r.race_no === rn) + '"' +
+          (r.race_no === rn ? "" : ' tabindex="-1"') + ">" + r.race_no + "<small>" + hhmm(r.post_time) + "</small></button>";
+      }).join("") + "</div>";
+      html += '<div id="hs-race" role="tabpanel" aria-labelledby="hs-tab-' + rn + '"></div>';
+      html += '<p class="small muted">評分 0–100 由模型勝出機率計出，50 分約等於平均水平；只供研究參考，並非投注建議。' +
+        '子評分、勝率、賠率同 10 隻機械人嘅決定見<a href="#/meeting/' + id + '">賽馬日頁</a>。</p>';
+      el.innerHTML = html;
+      function show(no, focus) {
+        state.homeRace[id] = no;
+        var r = races.filter(function (x) { return x.race_no === no; })[0];
+        el.querySelectorAll(".hs-tabs [role=tab]").forEach(function (b) {
+          var on = +b.getAttribute("data-rn") === no;
+          b.setAttribute("aria-selected", String(on));
+          if (on) b.removeAttribute("tabindex"); else b.setAttribute("tabindex", "-1");
+          if (on && focus) b.focus();
+          if (on && b.scrollIntoView && focus !== undefined) b.scrollIntoView({ block: "nearest", inline: "nearest" });
+        });
+        var panel = document.getElementById("hs-race");
+        panel.setAttribute("aria-labelledby", "hs-tab-" + no);
+        panel.innerHTML = homeRaceBlock(r);
+        var link = document.getElementById("hs-link");
+        if (link) link.setAttribute("href", "#/meeting/" + id + "/" + no);
+      }
+      el.querySelectorAll(".hs-tabs [role=tab]").forEach(function (b, i, all) {
+        b.addEventListener("click", function () { show(+b.getAttribute("data-rn"), false); });
+        b.addEventListener("keydown", function (e) {
+          var j = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : null;
+          if (j === null) return;
+          e.preventDefault();
+          j = (j + all.length) % all.length;
+          show(+all[j].getAttribute("data-rn"), true);
+        });
+      });
+      show(rn);
+    }).catch(function () {
+      if (!document.body.contains(el)) return;
+      el.innerHTML = '<div class="panel empty">暫時載入唔到評分。<a href="#/meeting/' + id + '">去賽馬日頁</a></div>';
+    });
+  }
+
+  function homeRaceBlock(r) {
+    var info = [r.race_class, ok(r.distance) ? r.distance + "米" : null, SURFACE_ZH[r.surface] || r.surface,
+      r.course ? "「" + r.course + "」賽道" : null, r.going].filter(Boolean).map(esc).join(" · ");
+    var horses = (r.horses || []).slice().sort(function (a, b) {
+      var sa = !a.scratched && ok(a.score), sb = !b.scratched && ok(b.score);
+      if (sa !== sb) return sa ? -1 : 1;
+      if (a.scratched !== b.scratched) return a.scratched ? 1 : -1;
+      if (sa) return (ok(a.rank) ? a.rank : 99) - (ok(b.rank) ? b.rank : 99) || b.score - a.score || a.horse_no - b.horse_no;
+      return a.horse_no - b.horse_no;
+    });
+    var html = '<div class="race-bar compact"><div class="rb-no">第 ' + r.race_no + ' 場</div><div class="rb-main"><b>' + esc(r.race_name || "") + "</b><span>" + info + "</span></div>" +
+      '<div class="rb-time">' + hhmm(r.post_time) + "</div></div>";
+    html += '<div class="srows" role="list">' + horses.map(function (h) {
+      var has = !h.scratched && ok(h.score);
+      var lit = has ? Math.round(h.score / 5) : 0;
+      var energy = "";
+      for (var i = 0; i < 20; i++) energy += "<i" + (i < lit ? ' class="on"' : "") + "></i>";
+      var fin = "";
+      if (h.result && ok(h.result.finish_pos)) fin = '<span class="fin-tag' + (h.result.finish_pos <= 3 ? " p" + h.result.finish_pos : "") + '">第' + h.result.finish_pos + "名</span>";
+      var reasons = has ? (h.reasons || []).map(function (s) { return '<span class="reason">' + esc(s) + "</span>"; }).join("") : "";
+      var rk = has && ok(h.rank) ? h.rank : null;
+      return '<div class="srow' + (h.scratched ? " scratched" : "") + (rk === 1 ? " top1" : "") + '" role="listitem">' +
+        '<div class="s-rank' + (rk && rk <= 3 ? " r" + rk : "") + '" title="評分排名">' + (rk ? '<span class="sr-only">評分第</span>' + rk + '<span class="sr-only">位</span>' : DASH) + "</div>" +
+        '<div class="s-cloth">' + cloth(h.horse_no) + "</div>" +
+        '<div class="s-name"><div class="hn">' + esc(h.horse_name || DASH) + (h.scratched ? ' <span class="chip">退出</span>' : "") + fin + "</div>" +
+        '<div class="jt">' + esc(h.jockey || DASH) + " / " + esc(h.trainer || DASH) + ' <span class="dw">· 檔位 ' + num(h.draw) + "</span></div></div>" +
+        (has ? '<div class="s-score"><span class="score-num">' + Math.round(h.score) + '</span><div class="energy" role="img" aria-label="評分 ' + Math.round(h.score) + ' / 100">' + energy + "</div></div>"
+          : '<div class="s-score muted small">' + (h.scratched ? "退出，冇評分" : "未有評分") + "</div>") +
+        (reasons ? '<div class="s-reasons">' + reasons + "</div>" : "") + "</div>";
+    }).join("") + "</div>";
+    return html;
   }
 
   function startCountdown(el, target) {
@@ -264,20 +398,12 @@
     state.timers.push(setInterval(tick, 1000));
   }
 
-  function boardRows(mode) {
+  function boardRows() {
     var bots = (state.index.bots || []).slice();
     var rows = bots.map(function (b) {
-      var v, sub;
-      if (mode === "backtest") {
-        var bt = b.backtest;
-        v = bt ? (ok(bt.oos_roi) ? bt.oos_roi : ok(bt.roi) ? bt.roi : null) : null;
-        sub = bt ? (ok(bt.oos_roi) ? "樣本外 ROI " + pct(bt.oos_roi, 1, true) : "ROI " + pct(bt.roi, 1, true)) : "未有回測";
-      } else {
-        v = equity(b);
-        var gain = ok(v) && b.start_bankroll ? v / b.start_bankroll - 1 : null;
-        sub = money(v) + "（" + pct(gain, 1, true) + "）";
-      }
-      return { bot: b, v: v, sub: sub };
+      var v = equity(b);
+      var gain = ok(v) && b.start_bankroll ? v / b.start_bankroll - 1 : null;
+      return { bot: b, v: ok(v) ? v : null, sub: money(v) + "（" + pct(gain, 1, true) + "）" };
     });
     rows.sort(function (a, b) {
       if (a.v === null && b.v === null) return a.bot.no - b.bot.no;
@@ -289,16 +415,15 @@
   }
 
   function drawBoard() {
-    var mode = state.prefs.mode;
     var el = document.getElementById("track");
     if (!el) return;
-    var rows = boardRows(mode);
+    var rows = boardRows();
     var vals = rows.filter(function (r) { return r.v !== null; }).map(function (r) { return r.v; });
     if (!vals.length) {
-      el.innerHTML = '<div class="panel empty">' + (mode === "backtest" ? "回測數據未有／計算緊，稍後再嚟睇。" : "機械人未有實盤紀錄。") + "</div>";
+      el.innerHTML = '<div class="panel empty">機械人未有實盤紀錄。</div>';
     } else {
-      var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-      if (mode === "live") { lo = Math.min(lo, state.index.start_bankroll || 10000); hi = Math.max(hi, state.index.start_bankroll || 10000); }
+      var start = state.index.start_bankroll || 10000;
+      var lo = Math.min.apply(null, vals.concat([start])), hi = Math.max.apply(null, vals.concat([start]));
       var span = hi - lo;
       var html = '<div class="track" role="list" aria-label="機械人排位">';
       rows.forEach(function (r, i) {
@@ -310,9 +435,7 @@
           '<span class="trail" style="width:' + Math.max(0, x * 0.6).toFixed(0) + 'px"></span>' + botToken(b) + "</div></div></div>";
       });
       html += "</div>";
-      html += '<div class="track-note">' + (mode === "live"
-        ? "跑道位置 = 現時模擬資金（起步 " + money(state.index.start_bankroll || 10000) + "，未結算注碼按本金計）；一樣資金時並排。"
-        : "跑道位置 = 樣本外回測回報率（2025-26 季起，門檻冇用呢段數據調）。回測用最終賠率，結果偏樂觀，唔代表將來表現。") + "</div>";
+      html += '<div class="track-note">跑道位置 = 現時模擬資金（起步 ' + money(start) + "，未結算注碼按本金計）；一樣資金時並排。</div>";
       el.innerHTML = html;
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
@@ -322,68 +445,49 @@
     }
     var t = document.getElementById("lb-table");
     if (!t) return;
-    var head, body;
-    if (mode === "backtest") {
-      head = "<th>#</th><th>機械人</th><th>回測期</th><th class=r>投注額</th><th class=r>全期 ROI</th><th class=r>樣本外 ROI</th><th class=r>樣本外 95% 區間</th><th class=r>賽馬日</th>";
-      body = rows.map(function (r, i) {
-        var bt = r.bot.backtest || {};
-        var ci = bt.roi_ci && ok(bt.roi_ci[0]) && ok(bt.roi_ci[1]) ? pct(bt.roi_ci[0], 0, true) + " 至 " + pct(bt.roi_ci[1], 0, true) : DASH;
-        return "<tr><td>" + (i + 1) + "</td><td>" + botCell(r.bot) + "</td><td class=small>" + esc(bt.period || DASH) +
-          "</td><td class='r num'>" + money(bt.stake) + "</td><td class='r num'>" + pct(bt.roi, 1, true) + "</td><td class='r num'><b>" + pct(bt.oos_roi, 1, true) +
-          "</b></td><td class='r num small'>" + ci + "</td><td class='r num'>" + (ok(bt.n_meetings) ? bt.n_meetings : DASH) + "</td></tr>";
-      }).join("");
-    } else {
-      head = "<th>#</th><th>機械人</th><th class=r>資金</th><th class=r>盈虧</th><th class=r>ROI</th><th class=r>命中率</th><th class=r>賽馬日</th>";
-      body = rows.map(function (r, i) {
-        var lv = r.bot.live || {};
-        return "<tr><td>" + (i + 1) + "</td><td>" + botCell(r.bot) + "</td><td class='r num'><b>" + money(equity(r.bot)) +
-          "</b></td><td class=r>" + plSpan(lv.profit) + "</td><td class='r num'>" + pct(lv.roi, 1, true) + "</td><td class='r num'>" + pct(lv.hit_rate, 0) +
-          "</td><td class='r num'>" + (ok(lv.n_meetings) ? lv.n_meetings : DASH) + "</td></tr>";
-      }).join("");
-    }
-    t.innerHTML = '<div class="panel scroll-x"><table class="tbl"><caption>' + (mode === "backtest" ? "回測（歷史模擬）" : "實盤（模擬投注，已結算注項）") +
-      "</caption><thead><tr>" + head + "</tr></thead><tbody>" + body + "</tbody></table></div>";
+    var head = "<th>#</th><th>機械人</th><th class=r>資金</th><th class=r>盈虧</th><th class=r>ROI</th><th class=r>命中率</th><th class=r>賽馬日</th>";
+    var body = rows.map(function (r, i) {
+      var lv = r.bot.live || {};
+      return "<tr><td>" + (i + 1) + "</td><td>" + botCell(r.bot) + "</td><td class='r num'><b>" + money(equity(r.bot)) +
+        "</b></td><td class=r>" + plSpan(lv.profit) + "</td><td class='r num'>" + pct(lv.roi, 1, true) + "</td><td class='r num'>" + pct(lv.hit_rate, 0) +
+        "</td><td class='r num'>" + (ok(lv.n_meetings) ? lv.n_meetings : DASH) + "</td></tr>";
+    }).join("");
+    t.innerHTML = '<div class="panel scroll-x"><table class="tbl"><caption>實盤（模擬投注，已結算注項）</caption><thead><tr>' + head +
+      "</tr></thead><tbody>" + body + "</tbody></table></div>";
   }
   function botCell(b) {
     return '<a href="#/bot/' + esc(b.id) + '" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none">' + botToken(b, "sm") + "<b>" + esc(b.name) + "</b></a>";
   }
 
-  // ------------------------------------------------------------------ curves
-  function curveSeries(mode, onlyBot) {
+  // ------------------------------------------------------------------ curves (live paper results)
+  function curveSeries(onlyBot) {
     var hist = state.history || { bots: [] };
     var start = hist.start_bankroll || (state.index && state.index.start_bankroll) || 10000;
     var series = [];
     (hist.bots || []).forEach(function (h) {
       if (onlyBot && h.bot_id !== onlyBot) return;
-      var b = botInfo(h.bot_id);
-      var pts = (mode === "backtest" ? h.backtest : h.live) || [];
-      pts = pts.filter(function (p) { return ok(p.bankroll) && p.date; });
+      var pts = (h.live || []).filter(function (p) { return ok(p.bankroll) && p.date; });
       if (!pts.length) return;
-      series.push({ id: h.bot_id, bot: b, points: pts });
+      series.push({ id: h.bot_id, bot: botInfo(h.bot_id), points: pts });
     });
     // x domain = union of dates (ordinal), with a start point before the first meeting
     var dates = {};
     series.forEach(function (s) { s.points.forEach(function (p) { dates[p.date] = 1; }); });
     var xs = Object.keys(dates).sort();
     var pos = {};
-    var lead = mode === "live" ? 1 : 0;
-    xs.forEach(function (d, i) { pos[d] = i + lead; });
+    xs.forEach(function (d, i) { pos[d] = i + 1; });
     series.forEach(function (s) {
-      var pts = s.points.map(function (p) { return { x: pos[p.date], y: p.bankroll, date: p.date, venue: p.venue }; });
-      s.xy = lead ? [{ x: 0, y: start, date: null }].concat(pts) : pts;
+      s.xy = [{ x: 0, y: start, date: null }].concat(s.points.map(function (p) { return { x: pos[p.date], y: p.bankroll, date: p.date, venue: p.venue }; }));
     });
-    return { series: series, xs: lead ? [null].concat(xs) : xs, start: start };
+    return { series: series, xs: [null].concat(xs), start: start };
   }
 
   function drawCurves() {
     var el = document.getElementById("curve");
     if (!el) return;
-    var mode = state.prefs.mode;
-    var sub = document.getElementById("curve-sub");
-    if (sub) sub.textContent = mode === "backtest" ? "回測（樣本外，2025-26 季起）：每個賽馬日後嘅模擬資金" : "實盤：每個已結算賽馬日後嘅模擬資金";
-    var cs = curveSeries(mode);
+    var cs = curveSeries();
     if (!cs.series.length) {
-      el.innerHTML = '<div class="empty">' + (mode === "backtest" ? "未有回測資金曲線。" : "未有已結算嘅賽馬日，資金曲線會喺第一個賽馬日結算後出現。") + "</div>";
+      el.innerHTML = '<div class="empty">未有已結算嘅賽馬日，資金曲線會喺第一個賽馬日結算後出現。</div>';
       return;
     }
     // default highlight: top 3 by final bankroll
@@ -715,12 +819,12 @@
     var html = demoBanner(state.index) + '<div class="section-head"><span class="kicker">ROBOTS</span><h1>10 隻模擬投注機械人</h1></div>' +
       '<p class="muted" style="margin-top:0">每隻機械人用同一套模型預測，但玩法同落注門檻唔同；各自有獨立 ' + money(state.index.start_bankroll || 10000) + " 模擬資金。「跟大熱」同「隨機猴子」係對照組。</p>";
     html += '<div class="bot-cards">' + bots.map(function (b) {
-      var lv = b.live || {}, bt = b.backtest || {};
+      var lv = b.live || {};
       return '<a class="bot-card" href="#/bot/' + esc(b.id) + '" style="--c:' + botColor(b)[0] + '"><div class="bc-top">' + botToken(b, "lg") +
         '<div><b style="font-size:17px">' + esc(b.name) + '</b><div class="small muted">' + esc(b.style) + "</div></div></div>" +
         '<div class="small" style="color:var(--text-2)">' + esc(b.description) + "</div>" +
-        '<div class="mini-stats"><span>資金 <b>' + money(equity(b)) + "</b></span><span>實盤 ROI <b>" + pct(lv.roi, 1, true) + "</b></span><span>回測 ROI <b>" +
-        pct(bt.roi, 1, true) + "</b></span></div></a>";
+        '<div class="mini-stats"><span>資金 <b>' + money(equity(b)) + "</b></span><span>盈虧 " + plSpan(lv.profit) + "</span><span>ROI <b>" +
+        pct(lv.roi, 1, true) + "</b></span></div></a>";
     }).join("") + "</div>";
     app.innerHTML = html;
     focusMain();
@@ -729,7 +833,7 @@
   function pageBot(id) {
     var b = botInfo(id);
     if (!b || !b.no) { app.innerHTML = '<div class="panel empty">搵唔到呢隻機械人。<a href="#/bots">返機械人列表</a></div>'; return; }
-    var lv = b.live || {}, bt = b.backtest;
+    var lv = b.live || {};
     var eq = equity(b);
     var gain = ok(eq) && b.start_bankroll ? eq / b.start_bankroll - 1 : null;
     var html = demoBanner(state.index) + '<div class="mtg-head">' + botToken(b, "lg") + '<div style="flex:1;min-width:0"><h1>' + esc(b.name) + '</h1><div class="muted">' +
@@ -744,29 +848,19 @@
       stat("實盤盈虧", ok(lv.profit) ? signedMoney(lv.profit) : DASH, "投注 " + money(lv.stake) + " · 派彩 " + money(lv.returns)) +
       stat("實盤 ROI", pct(lv.roi, 1, true), (ok(lv.n_meetings) ? lv.n_meetings : 0) + " 個賽馬日 · " + (ok(lv.n_tickets) ? lv.n_tickets : 0) + " 飛已結算") +
       stat("命中率", pct(lv.hit_rate, 0), "有派彩嘅飛數比例") +
-      stat("回測 ROI（全期）", bt ? pct(bt.roi, 1, true) : DASH, bt ? esc(bt.period || "") + (ok(bt.n_meetings) ? " · " + bt.n_meetings + " 個賽馬日" : "") : "未有回測") +
-      stat("樣本外 ROI", bt ? pct(bt.oos_roi, 1, true) : DASH, bt && bt.roi_ci && ok(bt.roi_ci[0]) ? "95% 區間 " + pct(bt.roi_ci[0], 0, true) + " 至 " + pct(bt.roi_ci[1], 0, true) + "（" + esc(bt.oos_period || "樣本外") + "）" : "門檻冇用呢段數據調") +
-      "</div>" + (bt && bt.caveat ? '<p class="small muted">' + esc(bt.caveat) + "</p>" : "");
-    html += '<section class="section"><div class="section-head"><h2>資金曲線</h2><span class="spacer"></span><div class="seg" role="group" aria-label="曲線">' +
-      '<button type="button" data-mode="live" aria-pressed="' + (state.prefs.mode === "live") + '">實盤</button>' +
-      '<button type="button" data-mode="backtest" aria-pressed="' + (state.prefs.mode === "backtest") + '">回測</button></div></div><div class="panel pad"><div id="curve1"></div></div></section>';
+      "</div>";
+    html += '<section class="section"><div class="section-head"><h2>資金曲線</h2><span class="muted small">實盤：每個已結算賽馬日後嘅模擬資金</span></div>' +
+      '<div class="panel pad"><div id="curve1"></div></div></section>';
     html += '<section class="section"><div class="section-head"><h2>全部注項</h2><span class="muted small" id="tk-sub"></span></div><div id="tickets"><div class="loading">載入中…</div></div></section>';
     app.innerHTML = html;
     document.getElementById("bot-sel").addEventListener("change", function (e) { location.hash = "#/bot/" + e.target.value; });
     function curve() {
       var el = document.getElementById("curve1");
       if (!el) return;
-      var cs = curveSeries(state.prefs.mode, id);
-      if (!cs.series.length) { el.innerHTML = '<div class="empty">' + (state.prefs.mode === "backtest" ? "未有回測曲線。" : "未有已結算嘅賽馬日。") + "</div>"; return; }
+      var cs = curveSeries(id);
+      if (!cs.series.length) { el.innerHTML = '<div class="empty">未有已結算嘅賽馬日。</div>'; return; }
       lineChart(el, cs, [id], function () {}, true);
     }
-    app.querySelectorAll(".seg [data-mode]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        state.prefs.mode = btn.getAttribute("data-mode"); savePrefs();
-        app.querySelectorAll(".seg [data-mode]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === btn)); });
-        curve();
-      });
-    });
     loadHistory().then(curve);
     // one file per robot (data/bots/<id>.json); older exports: gather from every meeting file
     getJSON("data/bots/" + encodeURIComponent(id) + ".json").then(function (d) {
@@ -820,9 +914,8 @@
     html += "<h2>方法</h2><ul>" +
       "<li>數據：公開嘅歷屆賽果、派彩、排位表，同賽前公開賠率（開售後）。</li>" +
       "<li>模型：按每場比賽估計每匹馬嘅勝出率（勝）同上名率（位）；每場勝出率加埋等於 100%。</li>" +
-      "<li>防止偷看未來：所有特徵只用該場之前嘅資料；回測用 walk-forward（每次只用預測日之前嘅數據訓練）。</li>" +
+      "<li>防止偷看未來：所有特徵只用該場之前嘅資料，模型每次只用預測日之前嘅數據訓練。</li>" +
       "<li>賽前約 2 小時攞賠率、計評分，10 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
-      "<li>回測用嘅係最終賠率，開跑前 2 小時嘅賠率會唔同，所以回測結果偏樂觀；試過好多策略，好睇嘅結果好可能只係運氣。</li>" +
       "<li>彩池抽水大約 17.5%–25%，過關每一關都要扣；長遠嚟講大部分玩法都係蝕錢。</li></ul>";
     html += "<h2>10 隻機械人</h2><ul>" + (idx.bots || []).map(function (b) {
       return '<li><a href="#/bot/' + esc(b.id) + '">' + b.no + " 號 " + esc(b.name) + "</a>（" + esc(b.style) + "）：" + esc(b.description) + "</li>";
@@ -830,7 +923,7 @@
     html += "<h2>免責聲明</h2><ul>" +
       "<li><b>" + esc(idx.disclaimer || "") + "</b></li>" +
       "<li>呢度所有投注都係電腦模擬（paper trade），從來冇落過任何真注，亦唔會代任何人落注。</li>" +
-      "<li>內容只供研究同學習，唔構成任何投資或投注建議；過往（包括回測）表現唔代表將來。</li>" +
+      "<li>內容只供研究同學習，唔構成任何投資或投注建議；過往表現唔代表將來。</li>" +
       "<li>本網站與香港賽馬會或任何賽馬機構無關，並非官方網站，亦冇使用其標誌或商標；賽事資料可能有誤，請以官方公佈為準。</li>" +
       "<li>如果覺得賭博影響到你或身邊嘅人，可以致電平和基金熱線 <b>1834 633</b> 尋求協助。</li></ul>";
     html += '<p class="small muted">數據更新：' + esc(idx.updated_at ? String(idx.updated_at).replace("T", " ").slice(0, 16) : DASH) + "（香港時間）</p></div>";

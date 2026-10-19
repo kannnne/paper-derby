@@ -10,9 +10,6 @@ Files written (formats per SPEC_V2 "Dashboard"; additions are marked [+] below):
      meetings:[{date, venue, status, file, [+]venue_zh, [+]n_races, [+]has_scores, [+]has_decisions}],
      bots:[{id, name, style, description, bankroll, start_bankroll,
             live:{n_meetings, stake, returns, profit, roi, hit_rate, [+]n_tickets, [+]open_stake},
-            backtest:{period, stake, returns, roi, roi_ci:[lo,hi], oos_roi, [+]oos_period, [+]is_roi,
-                      [+]is_period, [+]n_meetings, [+]hit_rate, [+]max_drawdown, [+]caveat}|null,
-              (stake/returns/roi = whole backtest; roi_ci, oos_roi, hit_rate, max_drawdown = out-of-sample)
             [+]no (saddle-cloth number 1..10)}],
      [+]score_explanation (中文, from scores.SCORE_EXPLANATION_ZH when available),
      [+]sub_score_labels {key: 中文}, [+]start_bankroll, [+]simulation_only: true}
@@ -42,10 +39,13 @@ Files written (formats per SPEC_V2 "Dashboard"; additions are marked [+] below):
     the robot page reads this one file instead of every meeting file)
 
 ``site/data/bot_history.json``
-    {updated_at, start_bankroll,
-     bots:[{bot_id, live:[{date, venue, stake, payout, profit, bankroll}],
-            backtest:[{date, bankroll, [+]venue, [+]stake, [+]returns}]}]}
+    {updated_at, start_bankroll, bots:[{bot_id, live:[{date, venue, stake, payout, profit, bankroll}]}]}
     live = one point per settled meeting (bankroll after that meeting, start_bankroll before the first).
+
+Live paper results only: backtest figures (SPEC_V2 index.json ``bots[].backtest`` and the backtest
+curves in bot_history.json) are deliberately NOT exported any more - the public dashboard shows
+live (paper) results only.  ``data/bot_backtest.json`` (hkjc.bots.backtest_bots) stays an internal
+research file and is never read here.
 
 Only the latest run per meeting is exported: the latest post-meeting run when the meeting has
 results and such a run produced data, else the latest pre-meeting run (robot decisions: each
@@ -76,7 +76,6 @@ log = logging.getLogger("hkjc.publish")
 HKT = ZoneInfo("Asia/Hong_Kong")
 SITE_DIR = ROOT / "site"
 PUBLISH_CONFIG = ROOT / "data" / "publish.json"
-BOT_BACKTEST = ROOT / "data" / "bot_backtest.json"
 START_BANKROLL = 10_000.0
 DEFAULT_PUBLISH_CONFIG = {"enabled": False, "remote": "", "branch": "main"}
 DEFAULT_AUTHOR = ("Paper Derby Bot", "paper-bot@localhost.invalid")   # neutral, not a club name
@@ -251,105 +250,6 @@ def score_explanation() -> str:
     except Exception as e:   # pragma: no cover
         log.debug("hkjc.scores unavailable (%s)", e)
     return FALLBACK_SCORE_EXPLANATION
-
-
-# ------------------------------------------------------------------ backtest file
-def _bt_curve(rows) -> list[dict]:
-    out = []
-    for r in rows or []:
-        if not isinstance(r, dict):
-            continue
-        bal = next((r[k] for k in ("bankroll", "balance", "equity", "capital") if r.get(k) is not None), None)
-        date = r.get("date") or r.get("meeting_date")
-        if date is None or _f(bal) is None:
-            continue
-        p = {"date": str(date)[:10], "bankroll": _f(bal, 2)}
-        for k_out, keys in (("venue", ("venue",)), ("stake", ("stake",)), ("returns", ("returns", "payout", "return"))):
-            v = next((r[k] for k in keys if r.get(k) is not None), None)
-            if v is not None:
-                p[k_out] = v if k_out == "venue" else _f(v, 2)
-        out.append(p)
-    out.sort(key=lambda p: p["date"])
-    return out
-
-
-def _bt_block(s: dict) -> dict:
-    period = s.get("period")
-    if isinstance(period, (list, tuple)):
-        period = " 至 ".join(str(p) for p in period if p)
-    if not period and (s.get("start") or s.get("period_start")):
-        period = f"{s.get('start') or s.get('period_start')} 至 {s.get('end') or s.get('period_end') or ''}".strip()
-    stake, ret = _f(s.get("stake"), 2), _f(s.get("returns", s.get("return")), 2)
-    roi = _f(s.get("roi"))
-    if roi is None and stake:
-        roi = (ret or 0) / stake - 1
-    ci = s.get("roi_ci")
-    if isinstance(ci, dict):
-        ci = [ci.get("lo"), ci.get("hi")]
-    if not (isinstance(ci, (list, tuple)) and len(ci) == 2):
-        ci = [None, None]
-    return {"period": str(period) if period else None, "stake": stake, "returns": ret, "roi": roi,
-            "roi_ci": [_f(ci[0]), _f(ci[1])], "n_meetings": _f(s.get("n_meetings")),
-            "hit_rate": _f(s.get("hit_rate")), "max_drawdown": _f(s.get("max_drawdown"), 2)}
-
-
-def _bt_summary(d: dict) -> dict | None:
-    """SPEC_V2 backtest block.  With hkjc.bots' {in_sample, oos} records: stake/returns/roi
-    cover the whole backtest (in-sample + out-of-sample), roi_ci / oos_roi are the
-    out-of-sample (2025-26 起) figures; [+] is_roi/is_period/oos_period/n_meetings/hit_rate/
-    max_drawdown/caveat."""
-    if not isinstance(d, dict):
-        return None
-    if isinstance(d.get("oos"), dict) or isinstance(d.get("in_sample"), dict):
-        ins = _bt_block(d.get("in_sample") or {})
-        oos = _bt_block(d.get("oos") or {})
-        stake = (ins["stake"] or 0) + (oos["stake"] or 0)
-        ret = (ins["returns"] or 0) + (oos["returns"] or 0)
-        periods = [p for p in (ins["period"], oos["period"]) if p]
-        nm = [x for x in (ins["n_meetings"], oos["n_meetings"]) if x is not None]
-        return {"period": " + ".join(periods) or None, "stake": round(stake, 2), "returns": round(ret, 2),
-                "roi": (ret / stake - 1) if stake else None, "roi_ci": oos["roi_ci"], "oos_roi": oos["roi"],
-                "oos_period": oos["period"], "is_roi": ins["roi"], "is_period": ins["period"],
-                "n_meetings": int(sum(nm)) if nm else None, "hit_rate": oos["hit_rate"],
-                "max_drawdown": oos["max_drawdown"], "caveat": d.get("caveat")}
-    s = d.get("summary") if isinstance(d.get("summary"), dict) else d
-    b = _bt_block(s)
-    oos = s.get("oos_roi")
-    if isinstance(oos, dict):
-        oos = oos.get("roi")
-    out = {k: b[k] for k in ("period", "stake", "returns", "roi", "roi_ci")}
-    out["oos_roi"] = _f(oos)
-    for k in ("n_meetings", "hit_rate", "max_drawdown"):
-        if b[k] is not None:
-            out[k] = b[k]
-    return out
-
-
-def load_bot_backtest(path=None) -> dict[str, dict]:
-    """{bot_id: {"summary": {...}|None, "curve": [...]}} from data/bot_backtest.json (any of the
-    shapes {bots:{id:{...}}}, {bots:[{bot_id,...}]}, {id:{...}}, [{bot_id,...}])."""
-    path = Path(path) if path is not None else BOT_BACKTEST
-    if not path.exists():
-        return {}
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        log.warning("cannot read %s: %s", path.name, e)
-        return {}
-    items = raw.get("bots", raw) if isinstance(raw, dict) else raw
-    if isinstance(items, dict):
-        items = [{**v, "bot_id": k} for k, v in items.items() if isinstance(v, dict)]
-    out = {}
-    for d in items or []:
-        if not isinstance(d, dict):
-            continue
-        bid = d.get("bot_id") or d.get("id")
-        if not bid:
-            continue
-        curve = next((d[k] for k in ("curve", "equity", "meetings", "history", "by_meeting") if
-                      isinstance(d.get(k), list)), [])
-        out[bid] = {"summary": _bt_summary(d), "curve": _bt_curve(curve)}
-    return out
 
 
 # ------------------------------------------------------------------ meetings / runs
@@ -704,7 +604,7 @@ def _live_stats(conn, bot_ids):
 
 
 # ------------------------------------------------------------------ export
-def export_site(conn, out_dir=None, backtest_path=None, demo: bool = False) -> list[Path]:
+def export_site(conn, out_dir=None, demo: bool = False) -> list[Path]:
     """Write index.json, meetings/*.json and bot_history.json under ``<out_dir>/data``.
     Returns the written paths.  ``out_dir`` defaults to the project's ``site/``.
     ``demo=True`` marks index.json as demonstration data (the site then shows a 示範數據 banner)."""
@@ -755,12 +655,11 @@ def export_site(conn, out_dir=None, backtest_path=None, demo: bool = False) -> l
     written += bfiles
 
     live, live_hist = _live_stats(conn, ids)
-    bt = load_bot_backtest(backtest_path)
     bots = []
-    for b in meta:
+    for b in meta:   # live (paper) results only - no backtest figures on the public site
         lv = live[b["id"]]
         bots.append({**b, "bankroll": lv["bankroll"], "start_bankroll": lv["start_bankroll"],
-                     "live": lv["live"], "backtest": (bt.get(b["id"]) or {}).get("summary")})
+                     "live": lv["live"]})
     now = _now()
     index = {"updated_at": now, "disclaimer": DISCLAIMER, "simulation_only": True,
              "start_bankroll": START_BANKROLL, "next_meeting": next_meeting(conn), "meetings": metas,
@@ -769,8 +668,7 @@ def export_site(conn, out_dir=None, backtest_path=None, demo: bool = False) -> l
         index["demo"] = True
     written.append(_write_json(data / "index.json", index))
     history = {"updated_at": now, "start_bankroll": START_BANKROLL,
-               "bots": [{"bot_id": bid, "live": live_hist[bid], "backtest": (bt.get(bid) or {}).get("curve", [])}
-                        for bid in ids]}
+               "bots": [{"bot_id": bid, "live": live_hist[bid]} for bid in ids]}
     written.append(_write_json(data / "bot_history.json", history))
     return written
 
@@ -815,7 +713,7 @@ def _ensure_repo(site: Path, branch: str):
         _git(site, "symbolic-ref", "HEAD", f"refs/heads/{branch}")
 
 
-def publish(conn, message=None, *, site_dir=None, config_path=None, backtest_path=None) -> dict:
+def publish(conn, message=None, *, site_dir=None, config_path=None) -> dict:
     """Export the site, commit it in ``site/`` (its own git repo) and push when enabled.
 
     Returns {status, files, committed, pushed, error}; status is one of
@@ -824,7 +722,7 @@ def publish(conn, message=None, *, site_dir=None, config_path=None, backtest_pat
     site = Path(site_dir) if site_dir is not None else SITE_DIR
     res = {"status": "exported", "files": [], "committed": False, "pushed": False, "error": None}
     try:
-        files = export_site(conn, site, backtest_path=backtest_path)
+        files = export_site(conn, site)
         res["files"] = [str(p.relative_to(site)) for p in files]
     except Exception as e:
         log.warning("site export failed: %s", e, exc_info=True)

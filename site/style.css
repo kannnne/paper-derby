@@ -214,6 +214,71 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
   padding: 10px 16px; border-radius: 10px; font-weight: 800; text-decoration: none;
 }
 
+/* ---------------------------------------------------------------- home: meeting list (top) */
+.top-section { margin-top: 0; }
+.mtg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.mtg-card {
+  display: grid; gap: 4px; align-content: start; padding: 10px 12px; text-decoration: none; position: relative; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px; box-shadow: var(--shadow);
+}
+.mtg-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line); }
+.mtg-card.is-next::before { background: var(--accent); }
+.mtg-card:hover { border-color: var(--line); background: var(--panel-2); }
+.mtg-card .mc-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.mtg-card .mc-top b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.mtg-card .mc-tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 0; }
+.mtg-card .mc-tags:empty { display: none; }
+
+/* ---------------------------------------------------------------- home: latest horse scores */
+#home-scores > .panel.loading { padding: 26px 16px; }
+.hs-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.hs-title { font-size: 17px; }
+.hs-link {
+  display: inline-flex; align-items: center; background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 14px;
+  padding: 7px 14px; border-radius: 10px; text-decoration: none; white-space: nowrap;
+}
+.hs-note { margin: 8px 0 0; }
+.hs-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 8px; margin-top: 12px; scrollbar-width: thin; }
+.hs-tabs button {
+  flex: none; min-width: 52px; text-align: center; padding: 6px 10px; border-radius: 10px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line); font-weight: 800; font-variant-numeric: tabular-nums; font-size: 15px;
+}
+.hs-tabs button small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; }
+.hs-tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.hs-tabs button[aria-selected="true"] small { color: var(--accent-ink); }
+.race-bar.compact { margin-top: 4px; }
+.race-bar.compact .rb-no { font-size: 17px; padding: 6px 14px; }
+.race-bar.compact .rb-main { padding: 6px 14px; }
+.race-bar.compact .rb-main b { font-size: 15px; }
+.srows { display: grid; gap: 6px; margin-top: 10px; }
+.srow {
+  display: grid; grid-template-columns: 34px 38px minmax(150px, 1fr) minmax(170px, 230px) minmax(0, 1.6fr);
+  grid-template-areas: "rk cl nm sc rs"; gap: 4px 12px; align-items: center; padding: 8px 12px 8px 8px;
+  background: linear-gradient(90deg, var(--panel-2), var(--panel) 40%); border: 1px solid var(--line-soft); border-radius: 10px;
+}
+.srow.top1 { border-color: rgba(255, 200, 61, .6); }
+.srow.scratched { opacity: .55; }
+.srow .s-rank {
+  grid-area: rk; align-self: stretch; display: grid; place-items: center; border-radius: 6px; background: rgba(5, 12, 24, .55);
+  color: #fff; font-weight: 900; font-size: 16px; font-variant-numeric: tabular-nums; transform: skewX(-8deg);
+}
+:root[data-theme="light"] .srow .s-rank { background: #13304f; }
+.srow .s-rank.r1 { background: #e2b33c; color: #1a1200; }
+.srow .s-rank.r2 { background: #c9d1db; color: #111; }
+.srow .s-rank.r3 { background: #c9834a; color: #1a0d00; }
+.srow .s-cloth { grid-area: cl; display: flex; justify-content: center; }
+.srow .s-name { grid-area: nm; min-width: 0; }
+.srow .s-name .hn { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.srow .s-name .jt { color: var(--text-2); font-size: 12px; }
+.srow .s-name .dw { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.srow .s-score { grid-area: sc; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.srow .s-score .score-num { font-size: 22px; min-width: 34px; text-align: right; }
+.srow .s-score .energy { height: 12px; }
+.srow .s-reasons { grid-area: rs; display: flex; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
+.hs-empty { display: flex; align-items: center; gap: 14px; }
+.hs-empty p { margin: 4px 0 0; }
+.hs-empty-icon .cloth { --c: var(--panel-3); --t: var(--muted); }
+
 /* ---------------------------------------------------------------- robot race track */
 .track { border-radius: 14px; overflow: hidden; border: 1px solid #1e5a42; }
 .lane {
@@ -409,6 +474,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
     grid-template-areas: "cloth name odds" "cloth score score" "cloth subs subs" "cloth prob prob" "cloth reasons reasons";
   }
   .hrow .c-prob { display: flex; gap: 14px; }
+  .srow {
+    grid-template-columns: 30px 38px minmax(0, 1fr) minmax(150px, 200px);
+    grid-template-areas: "rk cl nm sc" "rk cl rs rs";
+  }
 }
 @media (max-width: 640px) {
   body { font-size: 14px; }
@@ -436,6 +505,23 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
   .mtg-head > label { flex: 1 1 100%; }
   .mtg-head > label .select { flex: 1; }
   .dec-grid { grid-template-columns: 1fr; }
+  /* meeting list: one swipeable strip so the scores below stay near the top */
+  .mtg-list { display: flex; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 8px; gap: 8px; }
+  .mtg-card { flex: 0 0 72%; max-width: 240px; scroll-snap-align: start; }
+  .srow {
+    grid-template-columns: 26px 34px minmax(0, 1fr); padding: 8px 10px 8px 6px; gap: 4px 8px;
+    grid-template-areas: "rk cl nm" "rk cl sc" "rs rs rs";
+  }
+  .srow .cloth { width: 30px; height: 34px; font-size: 16px; }
+  .srow .s-rank { font-size: 14px; }
+  .srow .s-score .score-num { font-size: 19px; min-width: 28px; text-align: left; }
+  .srow .s-reasons { padding-left: 2px; gap: 3px 4px; }
+  .srow .reason { font-size: 11.5px; padding: 1px 6px; }
+  .race-bar.compact { flex-wrap: nowrap; }
+  .race-bar.compact .rb-no { font-size: 15px; padding: 6px 10px; white-space: nowrap; }
+  .race-bar.compact .rb-main { flex: 1 1 0; padding: 6px 10px; }
+  .race-bar.compact .rb-time { flex: none; padding: 6px 10px; }
+  .hs-link { flex: 1 1 100%; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

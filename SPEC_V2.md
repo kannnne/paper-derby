@@ -33,15 +33,16 @@
 | `monkey` | 隨機猴子（對照組） | 每場隨機揀一隻買位置 $10（以 race_id 做 seed，可重現） |
 - 門檻只用 2024-25 季調，2025-26 + 2026-27 做樣本外驗證；冇賠率（未開售）時用估計賠率並喺原因註明。
 - 資金不足（餘額 < 注碼）就 skip，原因寫「資金不足」。
-- `backtest_bots(conn, source='wf-combined-v1') -> DataFrame`：每隻機械人歷史回測（每個賽馬日 stake/return、累積資金曲線），寫 `data/bot_backtest.json` 供 dashboard 用。
+- `backtest_bots(conn, source='wf-combined-v1') -> DataFrame`：每隻機械人歷史回測（每個賽馬日 stake/return、累積資金曲線），寫 `data/bot_backtest.json`（內部研究用；**公開 dashboard 唔再顯示回測**，見下面 Dashboard）。
 
 ## Dashboard（GitHub Pages 靜態網站）
 - 原始碼：`site/`（`index.html`, `app.js`, `style.css`, 資料喺 `site/data/`）。純靜態，無後端；外部 JS 只可用 cdnjs/jsdelivr 固定版本；手機睇都要得；繁體中文。
 - `hkjc/publish.py`：`export_site(conn, out_dir=site/) -> list[path]` 由 DB 生成 JSON；`publish(conn, message)` → export + 喺 `site/`（獨立 git repo，remote 由 `data/publish.json` 設定 {"enabled": bool, "remote": "...", "branch": "main"}）commit + push。enabled=false 時只 export 唔 push。推送失敗唔可以令 pre/post 流程失敗。
 - JSON 格式：
-  - `site/data/index.json`：`{updated_at, disclaimer, next_meeting:{date,venue,first_post_time}, meetings:[{date, venue, status:'pre'|'results', file}], bots:[{id, name, style, description, bankroll, start_bankroll, live:{n_meetings, stake, returns, profit, roi, hit_rate}, backtest:{period, stake, returns, roi, roi_ci:[lo,hi], oos_roi}}]}`
+  - `site/data/index.json`：`{updated_at, disclaimer, next_meeting:{date,venue,first_post_time}, meetings:[{date, venue, status:'pre'|'results', file}], bots:[{id, name, style, description, bankroll, start_bankroll, live:{n_meetings, stake, returns, profit, roi, hit_rate}}]}`（**冇 `backtest`**）
   - `site/data/meetings/YYYY-MM-DD_VV.json`：`{date, venue, venue_zh, status, generated_at, odds_snapshot_at, model_version, races:[{race_no, post_time, race_class, distance, surface, course, going, race_name, horses:[{horse_no, horse_name, jockey, trainer, draw, weight, score, rank, p_win, p_place, win_odds, pla_odds, sub_scores:{...}, reasons:[...], scratched, result:{finish_pos, final_win_odds}|null}], decisions:[{bot_id, action, structure, selections, stake, reason, payout|null, profit|null}], result:{placings:[...], dividends:{WIN:[[comb,div]], PLA:[...], QIN:[...], QPL:[...], TRI:[...], FF:[...]}}|null}], bots:[{bot_id, stake, payout, profit, tickets:[{strategy, legs, total_stake, payout, reason}]}]}`
-  - `site/data/bot_history.json`：每隻機械人實盤（paper）資金曲線 + 回測資金曲線。
-- 頁面：① 首頁：下一個賽馬日、10 隻機械人排行榜（實盤 + 回測 ROI）、資金曲線圖；② 賽馬日頁：逐場馬匹評分表（評分、子評分條、理由、勝率/上名率、賠率），每場 10 隻機械人決定同原因，賽後顯示賽果、派彩、每隻機械人盈虧；③ 機械人頁：玩法說明、歷史表現、全部注項。
+  - `site/data/bot_history.json`：每隻機械人實盤（paper）資金曲線（**冇回測曲線**）；`site/data/bots/<bot_id>.json`：該機械人全部注項。
+- 頁面：① 首頁（由上至下）：賽馬日紀錄（最新排最頂）→ 最新有評分嘅賽馬日逐場每匹馬評分（能量條、評分排名、馬名、騎師/練馬師、檔位、簡短理由；下一個賽馬日賽前評分出咗就自動顯示佢，否則顯示最近一個有評分嘅過往賽馬日；只載入嗰一個賽馬日 JSON；未有評分時顯示「第一場開跑前約 2 小時出」）→ 下一個賽馬日倒數 → 10 隻機械人排行榜（只計實盤）→ 資金曲線圖（實盤）；② 賽馬日頁：逐場馬匹評分表（評分、子評分條、理由、勝率/上名率、賠率），每場 10 隻機械人決定同原因，賽後顯示賽果、派彩、每隻機械人盈虧；③ 機械人頁：玩法說明、歷史表現、全部注項。
+- **只顯示實盤（模擬投注）結果，唔顯示回測**（用戶要求「dashboard 唔需要顯示回測」）：首頁/機械人頁冇回測 ROI、區間、曲線或切換掣，`publish.py` 亦唔會將回測數據寫入公開 JSON。
 - 公開內容唔可以包含任何個人資料、帳戶、電郵。
 - **UI/UX 方向（用戶要求）**：參考電視台直播賽馬畫面嘅排位/字幕設計，同賽馬遊戲感：深草地綠/夜賽深藍底、號碼布式馬號徽章、LED/翻牌式賠率板、直播式「排位表」橫條、評分用能量條/星級、機械人排行榜做成跑道（10 隻機械人似馬匹喺跑道上按資金/ROI 排位，帶號碼布同顏色）、賽後似直播終點字幕顯示頭三名同派彩。動畫要克制、可讀性優先、手機得。原創設計：唔好用馬會 logo/商標/綵衣圖片或抄任何現有遊戲，唔好令人以為係馬會官方網站。
