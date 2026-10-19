@@ -11,11 +11,11 @@
     ["#18a3a3", "#0b1a1a"], ["#7b3fd1", "#ffffff"], ["#8a5a2b", "#ffffff"], ["#9aa4b1", "#111111"],
     ["#a3d12e", "#111111"], ["#5c0f1d", "#ffffff"]
   ];
-  // Robot colours (saddle-cloth number 1..10 always shown with the colour).
+  // Robot colours (robot number 1..12 always shown with the colour).
   var BOT_COLORS = [
     ["#3987e5", "#ffffff"], ["#d95926", "#ffffff"], ["#199e70", "#ffffff"], ["#c98500", "#111111"],
     ["#d55181", "#ffffff"], ["#2fa32f", "#ffffff"], ["#9085e9", "#111111"], ["#e66767", "#111111"],
-    ["#9aa4b1", "#111111"], ["#8a5a2b", "#ffffff"]
+    ["#9aa4b1", "#111111"], ["#8a5a2b", "#ffffff"], ["#1fb5c9", "#0b1a1a"], ["#b04fc4", "#ffffff"]
   ];
   var VENUE_ZH = { ST: "沙田", HV: "跑馬地" };
   var SURFACE_ZH = { TURF: "草地", AWT: "全天候跑道" };
@@ -222,8 +222,7 @@
   function pageHome() {
     var idx = state.index;
     var nm = idx.next_meeting;
-    var nmFile = nm && (idx.meetings || []).filter(function (m) { return m.date === nm.date && m.venue === nm.venue; })[0];
-    var html = demoBanner(idx);
+    var html = demoBanner(idx) + '<h1 class="sr-only">跑道機械人 · 模擬賽馬研究</h1>';
 
     // ① 賽馬日紀錄 (newest first) — very top
     html += '<section class="section top-section" aria-labelledby="mtg-h"><div class="section-head"><span class="kicker">MEETINGS</span><h2 id="mtg-h">賽馬日紀錄</h2>' +
@@ -234,28 +233,12 @@
     // ② 最新賽馬日馬匹評分 (one meeting file, lazy)
     html += '<section class="section" aria-labelledby="hs-h"><div class="section-head"><span class="kicker">SCORES</span><h2 id="hs-h">最新馬匹評分</h2>' +
       '<span class="muted small" id="hs-sub"></span></div><div id="home-scores"><div class="panel loading">載入評分…</div></div></section>';
-    // ③ 下一個賽馬日
-    html += '<section class="hero section" aria-label="下一個賽馬日">';
-    if (nm) {
-      html += '<div class="lower-third"><div class="lt-tag"><span>下一個賽馬日</span></div><div class="lt-body"><span>' +
-        esc(nm.venue_zh || VENUE_ZH[nm.venue] || nm.venue) + (nm.venue === "HV" ? " · 夜賽" : " · 日賽") + "</span></div></div>";
-      html += '<h1 style="margin-top:12px">' + dateZh(nm.date) + "</h1>";
-      html += '<div class="meta">第一場開跑 <b>' + hhmm(nm.first_post_time) + "</b>（香港時間）" +
-        (ok(nm.n_races) ? " · 共 " + nm.n_races + " 場" : "") + "</div>";
-      html += '<div class="countdown" id="countdown" aria-live="off"></div>';
-      if (nmFile) html += '<a class="cta" href="#/meeting/' + meetingId(nmFile) + '">睇排位、評分同機械人決定 →</a>';
-    } else {
-      html += '<h1>暫時未有已公佈嘅賽馬日</h1><div class="meta">排位表公佈後會自動更新。</div>';
-    }
-    html += "</section>";
-    // ④ 排行榜 + 資金曲線 (live paper results only)
+    // ③ 機械人賽道排行榜 (race-track lanes only; table + curve live on the robot page)
     html += '<section class="section" aria-labelledby="lb-h"><div class="section-head"><span class="kicker">LIVE</span><h2 id="lb-h">機械人賽道排行榜</h2>' +
-      '<span class="muted small">實盤（模擬投注）</span></div><div id="track"></div><div id="lb-table" class="section"></div></section>';
-    html += '<section class="section" aria-labelledby="curve-h"><div class="section-head"><h2 id="curve-h">資金曲線</h2><span class="muted small">實盤：每個已結算賽馬日後嘅模擬資金</span></div>' +
-      '<div class="panel pad"><div id="curve"></div></div></section>';
+      '<span class="muted small">實盤（模擬投注）</span></div><div id="track"></div>' +
+      '<div class="cta-row"><a class="cta" href="#/bots">睇全部機械人 →</a></div></section>';
     app.innerHTML = html;
 
-    if (nm) startCountdown(document.getElementById("countdown"), parseHK(nm.first_post_time || nm.date));
     var shown = scoresMeeting(idx);
     var ml = document.getElementById("mtg-list");
     var MAX_CARDS = 12;   // a season has ~90 meetings: older ones via the meeting page's selector
@@ -276,7 +259,6 @@
     drawHomePicks(document.getElementById("home-picks"), picksMeeting(idx));
     drawHomeScores(document.getElementById("home-scores"), shown);
     drawBoard();
-    loadHistory().then(drawCurves);
   }
 
   // ------------------------------------------------------------------ 今日精選 (daily picks, from the analysis engine)
@@ -624,7 +606,7 @@
       }).join("") + "</div>";
       html += '<div id="hs-race" role="tabpanel" aria-labelledby="hs-tab-' + rn + '"></div>';
       html += '<p class="small muted">評分 0–100 由模型勝出機率計出，50 分約等於平均水平；只供研究參考，並非投注建議。' +
-        '子評分、勝率、賠率同 10 隻機械人嘅決定見<a href="#/meeting/' + id + '">賽馬日頁</a>。</p>';
+        '子評分、勝率、賠率同 ' + (idx.bots || []).length + ' 隻機械人嘅決定見<a href="#/meeting/' + id + '">賽馬日頁</a>。</p>';
       el.innerHTML = html;
       function show(no, focus) {
         state.homeRace[id] = no;
@@ -690,25 +672,6 @@
         (reasons ? '<div class="s-reasons">' + reasons + "</div>" : "") + "</div>";
     }).join("") + "</div>";
     return html;
-  }
-
-  function startCountdown(el, target) {
-    if (!el || !target) return;
-    function cell(v, lbl) {
-      var s = String(v).padStart(2, "0");
-      return '<div class="cd-cell"><div class="cd-digits">' + s.split("").map(function (d) { return '<span class="flip">' + d + "</span>"; }).join("") +
-        '</div><div class="cd-label">' + lbl + "</div></div>";
-    }
-    function tick() {
-      var ms = target.getTime() - Date.now();
-      if (ms <= 0) { el.innerHTML = '<span class="chip gold">賽事進行中／已開跑</span>'; return; }
-      var s = Math.floor(ms / 1000);
-      var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
-      el.innerHTML = cell(d, "日") + cell(h, "時") + cell(m, "分") + cell(sec, "秒");
-      el.setAttribute("aria-label", "距離開跑 " + d + " 日 " + h + " 小時 " + m + " 分");
-    }
-    tick();
-    state.timers.push(setInterval(tick, 1000));
   }
 
   function boardRows() {
@@ -1051,7 +1014,7 @@
       '<span class="muted small">每隻機械人成日所有注項（單場同過關）擺埋一齊' + (settled ? "，已按賽果結算" : "") + "</span></div>";
     if (!hasAny) return html + '<div class="panel empty">未有機械人決定（通常喺第一場開跑前約 2 小時出）。</div></section>';
     var tot = bots.reduce(function (a, b) { a.s += b.stake || 0; a.n += (b.tickets || []).length; return a; }, { s: 0, n: 0 });
-    html += '<p class="small muted rb-sum">10 隻機械人合共 ' + tot.n + " 張單、注碼 " + money(tot.s) + "（模擬，每隻獨立資金）。模擬研究，非投注建議。</p>";
+    html += '<p class="small muted rb-sum">' + bots.length + ' 隻機械人合共 ' + tot.n + " 張單、注碼 " + money(tot.s) + "（模擬，每隻獨立資金）。模擬研究，非投注建議。</p>";
     html += '<div class="rb-grid">' + list.map(function (info) { return robotCard(info, by[info.id], m); }).join("") + "</div></section>";
     return html;
   }
@@ -1209,9 +1172,16 @@
 
   // ------------------------------------------------------------------ robots
   function pageBots() {
-    var bots = (state.index.bots || []).slice().sort(function (a, b) { return a.no - b.no; });
-    var html = demoBanner(state.index) + '<div class="section-head"><span class="kicker">ROBOTS</span><h1>10 隻模擬投注機械人</h1></div>' +
-      '<p class="muted" style="margin-top:0">每隻機械人用同一套模型預測，但玩法同落注門檻唔同；各自有獨立 ' + money(state.index.start_bankroll || 10000) + " 模擬資金。「跟大熱」同「隨機猴子」係對照組。</p>";
+    var idx = state.index;
+    var bots = (idx.bots || []).slice().sort(function (a, b) { return a.no - b.no; });
+    var html = demoBanner(idx);
+    // ① 機械人賽道排行榜 → ② 實盤排行表 → ③ 資金曲線 → ④ 機械人卡片
+    html += '<section class="section top-section" aria-labelledby="lb-h"><div class="section-head"><span class="kicker">LIVE</span><h1 id="lb-h">機械人賽道排行榜</h1>' +
+      '<span class="muted small">實盤（模擬投注）</span></div><div id="track"></div><div id="lb-table" class="section"></div></section>';
+    html += '<section class="section" aria-labelledby="curve-h"><div class="section-head"><h2 id="curve-h">資金曲線</h2><span class="muted small">實盤：每個已結算賽馬日後嘅模擬資金</span></div>' +
+      '<div class="panel pad"><div id="curve"><div class="loading">載入資金曲線…</div></div></div></section>';
+    html += '<section class="section" aria-labelledby="bots-h"><div class="section-head"><span class="kicker">ROBOTS</span><h2 id="bots-h">' + bots.length + ' 隻模擬投注機械人</h2></div>' +
+      '<p class="muted" style="margin-top:0">每隻機械人用同一套模型預測，但玩法同落注門檻唔同；各自有獨立 ' + money(idx.start_bankroll || 10000) + " 模擬資金。「跟大熱」同「隨機猴子」係對照組。</p>";
     html += '<div class="bot-cards">' + bots.map(function (b) {
       var lv = b.live || {};
       return '<a class="bot-card" href="#/bot/' + esc(b.id) + '" style="--c:' + botColor(b)[0] + '"><div class="bc-top">' + botToken(b, "lg") +
@@ -1219,8 +1189,10 @@
         '<div class="small" style="color:var(--text-2)">' + esc(b.description) + "</div>" +
         '<div class="mini-stats"><span>資金 <b>' + money(equity(b)) + "</b></span><span>盈虧 " + plSpan(lv.profit) + "</span><span>ROI <b>" +
         pct(lv.roi, 1, true) + "</b></span></div></a>";
-    }).join("") + "</div>";
+    }).join("") + "</div></section>";
     app.innerHTML = html;
+    drawBoard();
+    loadHistory().then(drawCurves);
     focusMain();
   }
 
@@ -1309,9 +1281,9 @@
       "<li>數據：公開嘅歷屆賽果、派彩、排位表，同賽前公開賠率（開售後）。</li>" +
       "<li>模型：按每場比賽估計每匹馬嘅勝出率（勝）同入三甲機率（入三甲）；每場勝出率加埋等於 100%。</li>" +
       "<li>防止偷看未來：所有特徵只用該場之前嘅資料，模型每次只用預測日之前嘅數據訓練。</li>" +
-      "<li>賽前約 2 小時攞賠率、計評分，10 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
+      "<li>賽前約 2 小時攞賠率、計評分，" + (idx.bots || []).length + " 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
       "<li>彩池抽水大約 17.5%–25%，過關每一關都要扣；長遠嚟講大部分玩法都係蝕錢。</li></ul>";
-    html += "<h2>10 隻機械人</h2><ul>" + (idx.bots || []).map(function (b) {
+    html += "<h2>" + (idx.bots || []).length + " 隻機械人</h2><ul>" + (idx.bots || []).map(function (b) {
       return '<li><a href="#/bot/' + esc(b.id) + '">' + b.no + " 號 " + esc(b.name) + "</a>（" + esc(b.style) + "）：" + esc(b.description) + "</li>";
     }).join("") + "</ul>";
     html += "<h2>免責聲明</h2><ul>" +
