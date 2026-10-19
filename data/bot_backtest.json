@@ -1,0 +1,6932 @@
+{
+ "place_only": {
+  "name": "位置專家",
+  "source": "wf-combined-v1",
+  "params": {
+   "min_ev": 0.9,
+   "min_p": 0.3,
+   "max_per_race": 2
+  },
+  "tuned": true,
+  "matches_live_config": true,
+  "live_config": {
+   "min_ev": 0.9,
+   "min_p": 0.3,
+   "max_per_race": 2
+  },
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 1720.0,
+   "returns": 1512.7,
+   "profit": -207.3,
+   "roi": -0.1205,
+   "n_bets": 169,
+   "n_meetings": 88,
+   "n_meetings_bet": 68,
+   "hit_rate": 0.5799
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 2490.0,
+   "returns": 2098.6,
+   "profit": -391.4,
+   "roi": -0.1572,
+   "n_bets": 237,
+   "n_meetings": 100,
+   "n_meetings_bet": 91,
+   "hit_rate": 0.5232,
+   "roi_ci": [
+    -0.2689,
+    -0.0508
+   ],
+   "final_bankroll": 9608.6,
+   "max_drawdown": 494.3,
+   "n_skip_funds": 0
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 10001.6
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 10023.1
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 10027.6
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 10022.1
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 10055.6
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 10068.8
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 10083.8
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 10074.3
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 10073.8
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 10053.9
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 10064.9
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 10055.4
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 10055.4
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 10057.4
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 10068.4
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 10098.9
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 10078.9
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 10102.9
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 10082.9
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 10077.9
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 10067.9
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 10054.5
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 10051.0
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 10026.5
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 10026.5
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 9993.0
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 9993.0
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 10015.7
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 10019.2
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 10009.2
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 9999.2
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 9969.2
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 9967.2
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 9978.2
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 10005.2
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 10010.7
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 10020.7
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 10003.7
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 9979.7
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 9981.3
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 9971.3
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 9968.3
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 9948.3
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 9946.3
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 9942.8
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 9946.8
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 9937.4
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 9913.6
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 9887.1
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 9877.6
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 9888.6
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 9884.6
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 9899.1
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 9889.1
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 9879.1
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 9875.2
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 9880.2
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 9884.3
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 9865.8
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 9850.4
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 9877.9
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 9877.9
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 9864.4
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 9839.9
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 9829.9
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 9794.6
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 9793.1
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 9773.1
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 9771.6
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 9756.1
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 9746.1
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 9733.6
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 9733.6
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 9703.7
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 9703.7
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 9693.7
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 9683.7
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 9673.7
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 9663.7
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 9695.2
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 9698.2
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 9688.2
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 9680.3
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 9690.8
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 9700.9
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 9690.9
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 9675.4
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 9665.4
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 9673.5
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 9663.5
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 9647.5
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 9647.5
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 9627.5
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 9617.5
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 9615.5
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 9621.0
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 9621.0
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 9618.6
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 9618.6
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 9608.6
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 1720.0,
+    "returns": 1512.7,
+    "profit": -207.3,
+    "roi": -0.1205,
+    "n_bets": 169,
+    "n_meetings": 88,
+    "n_meetings_bet": 68,
+    "hit_rate": 0.5799
+   },
+   "2025-26": {
+    "stake": 2330.0,
+    "returns": 1995.4,
+    "profit": -334.6,
+    "roi": -0.1436,
+    "n_bets": 221,
+    "n_meetings": 88,
+    "n_meetings_bet": 82,
+    "hit_rate": 0.5294
+   },
+   "2026-27": {
+    "stake": 160.0,
+    "returns": 103.2,
+    "profit": -56.8,
+    "roi": -0.355,
+    "n_bets": 16,
+    "n_meetings": 12,
+    "n_meetings_bet": 9,
+    "hit_rate": 0.4375
+   }
+  },
+  "grid": [
+   {
+    "params": {
+     "min_ev": 0.85,
+     "min_p": 0.0
+    },
+    "roi": -0.1606,
+    "n_bets": 845,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_ev": 0.85,
+     "min_p": 0.3
+    },
+    "roi": -0.1434,
+    "n_bets": 840,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_ev": 0.85,
+     "min_p": 0.5
+    },
+    "roi": -0.1329,
+    "n_bets": 706,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_ev": 0.88,
+     "min_p": 0.0
+    },
+    "roi": -0.1521,
+    "n_bets": 491,
+    "n_meetings_bet": 87
+   },
+   {
+    "params": {
+     "min_ev": 0.88,
+     "min_p": 0.3
+    },
+    "roi": -0.1283,
+    "n_bets": 468,
+    "n_meetings_bet": 87
+   },
+   {
+    "params": {
+     "min_ev": 0.88,
+     "min_p": 0.5
+    },
+    "roi": -0.1453,
+    "n_bets": 305,
+    "n_meetings_bet": 83
+   },
+   {
+    "params": {
+     "min_ev": 0.9,
+     "min_p": 0.0
+    },
+    "roi": -0.1717,
+    "n_bets": 180,
+    "n_meetings_bet": 68
+   },
+   {
+    "params": {
+     "min_ev": 0.9,
+     "min_p": 0.3
+    },
+    "roi": -0.1205,
+    "n_bets": 169,
+    "n_meetings_bet": 68
+   },
+   {
+    "params": {
+     "min_ev": 0.9,
+     "min_p": 0.5
+    },
+    "roi": -0.1674,
+    "n_bets": 105,
+    "n_meetings_bet": 55
+   },
+   {
+    "params": {
+     "min_ev": 0.92,
+     "min_p": 0.0
+    },
+    "roi": -0.229,
+    "n_bets": 59,
+    "n_meetings_bet": 45
+   },
+   {
+    "params": {
+     "min_ev": 0.92,
+     "min_p": 0.3
+    },
+    "roi": -0.1729,
+    "n_bets": 55,
+    "n_meetings_bet": 43
+   },
+   {
+    "params": {
+     "min_ev": 0.92,
+     "min_p": 0.5
+    },
+    "roi": -0.1753,
+    "n_bets": 34,
+    "n_meetings_bet": 30
+   },
+   {
+    "params": {
+     "min_ev": 0.95,
+     "min_p": 0.0
+    },
+    "roi": -0.2036,
+    "n_bets": 14,
+    "n_meetings_bet": 10
+   },
+   {
+    "params": {
+     "min_ev": 0.95,
+     "min_p": 0.3
+    },
+    "roi": -0.2036,
+    "n_bets": 14,
+    "n_meetings_bet": 10
+   },
+   {
+    "params": {
+     "min_ev": 0.95,
+     "min_p": 0.5
+    },
+    "roi": -0.0708,
+    "n_bets": 12,
+    "n_meetings_bet": 8
+   },
+   {
+    "params": {
+     "min_ev": 1.0,
+     "min_p": 0.0
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   },
+   {
+    "params": {
+     "min_ev": 1.0,
+     "min_p": 0.3
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   },
+   {
+    "params": {
+     "min_ev": 1.0,
+     "min_p": 0.5
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   },
+   {
+    "params": {
+     "min_ev": 1.05,
+     "min_p": 0.0
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   },
+   {
+    "params": {
+     "min_ev": 1.05,
+     "min_p": 0.3
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   },
+   {
+    "params": {
+     "min_ev": 1.05,
+     "min_p": 0.5
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   }
+  ],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ },
+ "fixed_combo": {
+  "name": "固定組合",
+  "source": "wf-combined-v1",
+  "params": {},
+  "tuned": false,
+  "matches_live_config": true,
+  "live_config": {},
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 32670.0,
+   "returns": 22788.78,
+   "profit": -9881.22,
+   "roi": -0.3025,
+   "n_bets": 125,
+   "n_meetings": 88,
+   "n_meetings_bet": 33,
+   "hit_rate": 0.872
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 30540.0,
+   "returns": 20571.21,
+   "profit": -9968.79,
+   "roi": -0.3264,
+   "n_bets": 114,
+   "n_meetings": 100,
+   "n_meetings_bet": 31,
+   "hit_rate": 0.8947,
+   "roi_ci": [
+    -0.4821,
+    -0.148
+   ],
+   "final_bankroll": 31.22,
+   "max_drawdown": 9968.78,
+   "n_skip_funds": 796
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 9857.7
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 9762.82
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 8848.62
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 8179.77
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 7233.87
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 7605.49
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 6863.67
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 7756.23
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 7915.75
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 7445.29
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 7267.88
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 6328.95
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 5882.97
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 5423.72
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 5415.85
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 5142.11
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 4612.5
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 3705.32
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 3475.07
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 3342.28
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 2576.96
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 1642.6
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 1530.02
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 1260.48
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 772.39
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 528.97
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 536.12
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 1275.95
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 856.02
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 156.22
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 31.22
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 31.22
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 32670.0,
+    "returns": 22788.78,
+    "profit": -9881.22,
+    "roi": -0.3025,
+    "n_bets": 125,
+    "n_meetings": 88,
+    "n_meetings_bet": 33,
+    "hit_rate": 0.872
+   },
+   "2025-26": {
+    "stake": 30540.0,
+    "returns": 20571.21,
+    "profit": -9968.79,
+    "roi": -0.3264,
+    "n_bets": 114,
+    "n_meetings": 88,
+    "n_meetings_bet": 31,
+    "hit_rate": 0.8947
+   },
+   "2026-27": {
+    "stake": 0.0,
+    "returns": 0.0,
+    "profit": 0.0,
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings": 12,
+    "n_meetings_bet": 0,
+    "hit_rate": null
+   }
+  },
+  "grid": [],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ },
+ "adaptive": {
+  "name": "按場自動",
+  "source": "wf-combined-v1",
+  "params": {
+   "tau": 0.0,
+   "h_min": 0.3,
+   "max_stake": 200.0
+  },
+  "tuned": true,
+  "matches_live_config": true,
+  "live_config": {
+   "tau": 0.0,
+   "h_min": 0.3,
+   "max_stake": 200.0
+  },
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 5820.0,
+   "returns": 6439.0,
+   "profit": 619.0,
+   "roi": 0.1064,
+   "n_bets": 187,
+   "n_meetings": 88,
+   "n_meetings_bet": 76,
+   "hit_rate": 0.3422
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 5420.0,
+   "returns": 5161.5,
+   "profit": -258.5,
+   "roi": -0.0477,
+   "n_bets": 173,
+   "n_meetings": 100,
+   "n_meetings_bet": 75,
+   "hit_rate": 0.3526,
+   "roi_ci": [
+    -0.3199,
+    0.253
+   ],
+   "final_bankroll": 9741.5,
+   "max_drawdown": 1012.5,
+   "n_skip_funds": 0
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 10009.0
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 9819.0
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 9709.0
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 9659.0
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 9696.0
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 9776.0
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 9879.0
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 10233.5
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 10203.5
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 10143.5
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 10143.5
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 10063.5
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 10082.0
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 10118.5
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 10129.0
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 10202.0
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 10132.0
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 10032.0
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 10012.0
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 10016.5
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 9986.5
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 9972.5
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 9932.5
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 9816.5
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 9816.5
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 9845.5
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 9919.0
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 9950.0
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 9950.0
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 9950.0
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 9950.0
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 10041.5
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 10041.5
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 10171.0
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 10178.5
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 10254.0
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 10423.0
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 10373.0
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 10371.0
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 10512.5
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 10512.5
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 10647.5
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 10754.0
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 10754.0
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 10714.0
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 10714.0
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 10730.0
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 10670.0
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 10679.5
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 10649.5
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 10649.5
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 10459.5
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 10459.5
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 10409.5
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 10369.5
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 10409.5
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 10409.5
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 10409.5
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 10610.5
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 10594.0
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 10700.5
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 10712.5
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 10712.5
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 10479.5
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 10427.5
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 10399.5
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 10399.5
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 10410.0
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 10410.0
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 10230.0
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 10210.0
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 10330.5
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 10330.5
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 10230.5
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 10230.5
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 10220.5
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 10220.5
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 10170.5
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 10251.0
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 10221.0
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 10171.0
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 10171.0
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 10081.0
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 10081.0
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 10110.0
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 10080.0
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 10060.0
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 10010.0
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 9975.5
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 9975.5
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 9867.0
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 9867.0
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 9890.0
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 9831.5
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 9801.5
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 9771.5
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 9761.5
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 9761.5
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 9761.5
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 9741.5
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 5820.0,
+    "returns": 6439.0,
+    "profit": 619.0,
+    "roi": 0.1064,
+    "n_bets": 187,
+    "n_meetings": 88,
+    "n_meetings_bet": 76,
+    "hit_rate": 0.3422
+   },
+   "2025-26": {
+    "stake": 4860.0,
+    "returns": 4870.0,
+    "profit": 10.0,
+    "roi": 0.0021,
+    "n_bets": 154,
+    "n_meetings": 88,
+    "n_meetings_bet": 67,
+    "hit_rate": 0.3701
+   },
+   "2026-27": {
+    "stake": 560.0,
+    "returns": 291.5,
+    "profit": -268.5,
+    "roi": -0.4795,
+    "n_bets": 19,
+    "n_meetings": 12,
+    "n_meetings_bet": 8,
+    "hit_rate": 0.2105
+   }
+  },
+  "grid": [
+   {
+    "params": {
+     "tau": 0.0,
+     "h_min": 0.05
+    },
+    "roi": 0.0244,
+    "n_bets": 575,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "tau": 0.0,
+     "h_min": 0.15
+    },
+    "roi": -0.128,
+    "n_bets": 444,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "tau": 0.0,
+     "h_min": 0.3
+    },
+    "roi": 0.1064,
+    "n_bets": 187,
+    "n_meetings_bet": 76
+   },
+   {
+    "params": {
+     "tau": 0.1,
+     "h_min": 0.05
+    },
+    "roi": -0.4064,
+    "n_bets": 110,
+    "n_meetings_bet": 67
+   },
+   {
+    "params": {
+     "tau": 0.1,
+     "h_min": 0.15
+    },
+    "roi": -0.0279,
+    "n_bets": 70,
+    "n_meetings_bet": 49
+   },
+   {
+    "params": {
+     "tau": 0.1,
+     "h_min": 0.3
+    },
+    "roi": 0.6652,
+    "n_bets": 14,
+    "n_meetings_bet": 13
+   },
+   {
+    "params": {
+     "tau": 0.2,
+     "h_min": 0.05
+    },
+    "roi": 0.4389,
+    "n_bets": 6,
+    "n_meetings_bet": 6
+   },
+   {
+    "params": {
+     "tau": 0.2,
+     "h_min": 0.15
+    },
+    "roi": 1.1583,
+    "n_bets": 5,
+    "n_meetings_bet": 5
+   },
+   {
+    "params": {
+     "tau": 0.2,
+     "h_min": 0.3
+    },
+    "roi": 0.4333,
+    "n_bets": 2,
+    "n_meetings_bet": 2
+   },
+   {
+    "params": {
+     "tau": 0.4,
+     "h_min": 0.05
+    },
+    "roi": 3.3,
+    "n_bets": 1,
+    "n_meetings_bet": 1
+   },
+   {
+    "params": {
+     "tau": 0.4,
+     "h_min": 0.15
+    },
+    "roi": 3.3,
+    "n_bets": 1,
+    "n_meetings_bet": 1
+   },
+   {
+    "params": {
+     "tau": 0.4,
+     "h_min": 0.3
+    },
+    "roi": 3.3,
+    "n_bets": 1,
+    "n_meetings_bet": 1
+   }
+  ],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ },
+ "win_value": {
+  "name": "獨贏價值",
+  "source": "wf-combined-v1",
+  "params": {
+   "min_ev": 0.95,
+   "min_p": 0.15
+  },
+  "tuned": true,
+  "matches_live_config": true,
+  "live_config": {
+   "min_ev": 0.95,
+   "min_p": 0.15
+  },
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 1480.0,
+   "returns": 1540.0,
+   "profit": 60.0,
+   "roi": 0.0405,
+   "n_bets": 148,
+   "n_meetings": 88,
+   "n_meetings_bet": 70,
+   "hit_rate": 0.3108
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 2080.0,
+   "returns": 2116.0,
+   "profit": 36.0,
+   "roi": 0.0173,
+   "n_bets": 208,
+   "n_meetings": 100,
+   "n_meetings_bet": 91,
+   "hit_rate": 0.2596,
+   "roi_ci": [
+    -0.2493,
+    0.3234
+   ],
+   "final_bankroll": 10036.0,
+   "max_drawdown": 366.5,
+   "n_skip_funds": 0
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 9980.0
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 9988.0
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 10032.5
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 10062.0
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 10109.5
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 10135.0
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 10105.0
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 10190.0
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 10211.5
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 10191.5
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 10221.0
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 10191.0
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 10191.0
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 10241.0
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 10277.5
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 10237.5
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 10207.5
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 10197.5
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 10177.5
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 10207.5
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 10187.5
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 10202.5
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 10192.5
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 10142.5
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 10142.5
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 10122.5
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 10160.5
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 10177.5
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 10222.0
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 10253.0
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 10243.0
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 10243.0
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 10213.0
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 10233.0
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 10203.0
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 10213.5
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 10173.5
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 10183.0
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 10153.0
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 10149.0
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 10149.0
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 10119.0
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 10099.0
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 10069.0
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 10059.0
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 10160.5
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 10195.5
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 10205.5
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 10219.0
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 10199.0
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 10252.0
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 10242.5
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 10232.5
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 10272.5
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 10310.0
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 10290.0
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 10290.0
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 10280.0
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 10311.5
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 10282.0
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 10373.0
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 10363.0
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 10323.0
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 10293.0
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 10283.0
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 10263.5
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 10293.5
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 10263.5
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 10233.5
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 10247.5
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 10217.5
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 10213.0
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 10203.0
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 10193.0
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 10183.0
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 10163.0
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 10163.0
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 10153.0
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 10143.0
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 10189.0
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 10207.0
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 10207.0
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 10197.0
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 10187.0
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 10177.0
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 10137.0
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 10117.0
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 10107.0
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 10145.0
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 10135.0
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 10126.5
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 10116.5
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 10086.5
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 10056.5
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 10026.5
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 10026.5
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 10026.5
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 10006.5
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 10046.0
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 10036.0
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 1480.0,
+    "returns": 1540.0,
+    "profit": 60.0,
+    "roi": 0.0405,
+    "n_bets": 148,
+    "n_meetings": 88,
+    "n_meetings_bet": 70,
+    "hit_rate": 0.3108
+   },
+   "2025-26": {
+    "stake": 1860.0,
+    "returns": 1967.0,
+    "profit": 107.0,
+    "roi": 0.0575,
+    "n_bets": 186,
+    "n_meetings": 88,
+    "n_meetings_bet": 81,
+    "hit_rate": 0.2688
+   },
+   "2026-27": {
+    "stake": 220.0,
+    "returns": 149.0,
+    "profit": -71.0,
+    "roi": -0.3227,
+    "n_bets": 22,
+    "n_meetings": 12,
+    "n_meetings_bet": 10,
+    "hit_rate": 0.1818
+   }
+  },
+  "grid": [
+   {
+    "params": {
+     "min_ev": 0.9,
+     "min_p": 0.0
+    },
+    "roi": -0.1517,
+    "n_bets": 589,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_ev": 0.9,
+     "min_p": 0.08
+    },
+    "roi": -0.1556,
+    "n_bets": 574,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_ev": 0.9,
+     "min_p": 0.15
+    },
+    "roi": -0.1572,
+    "n_bets": 493,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_ev": 0.95,
+     "min_p": 0.0
+    },
+    "roi": 0.0354,
+    "n_bets": 182,
+    "n_meetings_bet": 71
+   },
+   {
+    "params": {
+     "min_ev": 0.95,
+     "min_p": 0.08
+    },
+    "roi": 0.0095,
+    "n_bets": 174,
+    "n_meetings_bet": 71
+   },
+   {
+    "params": {
+     "min_ev": 0.95,
+     "min_p": 0.15
+    },
+    "roi": 0.0405,
+    "n_bets": 148,
+    "n_meetings_bet": 70
+   },
+   {
+    "params": {
+     "min_ev": 1.0,
+     "min_p": 0.0
+    },
+    "roi": 0.2533,
+    "n_bets": 46,
+    "n_meetings_bet": 35
+   },
+   {
+    "params": {
+     "min_ev": 1.0,
+     "min_p": 0.08
+    },
+    "roi": 0.3102,
+    "n_bets": 44,
+    "n_meetings_bet": 34
+   },
+   {
+    "params": {
+     "min_ev": 1.0,
+     "min_p": 0.15
+    },
+    "roi": 0.4061,
+    "n_bets": 41,
+    "n_meetings_bet": 31
+   },
+   {
+    "params": {
+     "min_ev": 1.05,
+     "min_p": 0.0
+    },
+    "roi": 0.0577,
+    "n_bets": 13,
+    "n_meetings_bet": 12
+   },
+   {
+    "params": {
+     "min_ev": 1.05,
+     "min_p": 0.08
+    },
+    "roi": 0.0577,
+    "n_bets": 13,
+    "n_meetings_bet": 12
+   },
+   {
+    "params": {
+     "min_ev": 1.05,
+     "min_p": 0.15
+    },
+    "roi": 0.25,
+    "n_bets": 11,
+    "n_meetings_bet": 10
+   },
+   {
+    "params": {
+     "min_ev": 1.1,
+     "min_p": 0.0
+    },
+    "roi": 0.4333,
+    "n_bets": 3,
+    "n_meetings_bet": 3
+   },
+   {
+    "params": {
+     "min_ev": 1.1,
+     "min_p": 0.08
+    },
+    "roi": 0.4333,
+    "n_bets": 3,
+    "n_meetings_bet": 3
+   },
+   {
+    "params": {
+     "min_ev": 1.1,
+     "min_p": 0.15
+    },
+    "roi": 0.4333,
+    "n_bets": 3,
+    "n_meetings_bet": 3
+   }
+  ],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ },
+ "qpl_box": {
+  "name": "位置Q 複式",
+  "source": "wf-combined-v1",
+  "params": {
+   "min_hit": 0.3,
+   "tau": null
+  },
+  "tuned": true,
+  "matches_live_config": true,
+  "live_config": {
+   "min_hit": 0.3,
+   "tau": null
+  },
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 25080.0,
+   "returns": 22613.0,
+   "profit": -2467.0,
+   "roi": -0.0984,
+   "n_bets": 836,
+   "n_meetings": 88,
+   "n_meetings_bet": 88,
+   "hit_rate": 0.5156
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 28770.0,
+   "returns": 25977.0,
+   "profit": -2793.0,
+   "roi": -0.0971,
+   "n_bets": 959,
+   "n_meetings": 100,
+   "n_meetings_bet": 100,
+   "hit_rate": 0.5172,
+   "roi_ci": [
+    -0.1682,
+    -0.0291
+   ],
+   "final_bankroll": 7207.0,
+   "max_drawdown": 3129.5,
+   "n_skip_funds": 0
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 10051.0
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 9992.5
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 9814.0
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 9811.5
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 9730.0
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 9758.0
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 9704.5
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 9802.0
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 9811.5
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 9689.5
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 9768.0
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 9665.0
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 9530.0
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 9366.0
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 9390.5
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 9622.0
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 9543.5
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 9279.5
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 9461.5
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 9460.0
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 9468.0
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 9235.0
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 9317.0
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 9266.5
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 9260.0
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 9101.5
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 9130.0
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 9300.0
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 9236.5
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 9250.0
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 9071.5
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 8939.0
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 8871.5
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 8918.5
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 9072.0
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 9172.5
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 9290.0
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 9387.5
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 9500.0
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 9525.5
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 9601.0
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 9404.0
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 9309.0
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 9246.0
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 9189.5
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 9260.0
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 9355.5
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 9376.0
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 9316.0
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 9178.5
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 9273.5
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 9049.5
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 8887.5
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 8740.5
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 8723.5
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 8674.0
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 8615.5
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 8588.5
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 8427.0
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 8245.0
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 8285.0
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 8199.0
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 8169.0
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 8097.5
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 8007.0
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 8142.5
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 8067.5
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 8177.5
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 8252.5
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 8135.0
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 8202.5
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 8075.5
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 8018.5
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 7981.5
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 7854.5
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 7808.0
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 7838.0
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 7688.0
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 7695.0
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 7751.5
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 7585.5
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 7458.0
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 7437.0
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 7450.5
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 7466.0
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 7277.5
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 7206.5
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 7099.5
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 6987.5
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 7010.5
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 6921.5
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 7009.5
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 6944.5
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 7010.0
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 7242.0
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 7274.5
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 7368.5
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 7344.5
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 7343.5
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 7207.0
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 25080.0,
+    "returns": 22613.0,
+    "profit": -2467.0,
+    "roi": -0.0984,
+    "n_bets": 836,
+    "n_meetings": 88,
+    "n_meetings_bet": 88,
+    "hit_rate": 0.5156
+   },
+   "2025-26": {
+    "stake": 25440.0,
+    "returns": 22539.5,
+    "profit": -2900.5,
+    "roi": -0.114,
+    "n_bets": 848,
+    "n_meetings": 88,
+    "n_meetings_bet": 88,
+    "hit_rate": 0.5094
+   },
+   "2026-27": {
+    "stake": 3330.0,
+    "returns": 3437.5,
+    "profit": 107.5,
+    "roi": 0.0323,
+    "n_bets": 111,
+    "n_meetings": 12,
+    "n_meetings_bet": 12,
+    "hit_rate": 0.5766
+   }
+  },
+  "grid": [
+   {
+    "params": {
+     "min_hit": 0.3,
+     "tau": null
+    },
+    "roi": -0.0984,
+    "n_bets": 836,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_hit": 0.3,
+     "tau": 0.0
+    },
+    "roi": -0.5156,
+    "n_bets": 16,
+    "n_meetings_bet": 13
+   },
+   {
+    "params": {
+     "min_hit": 0.3,
+     "tau": 0.1
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   },
+   {
+    "params": {
+     "min_hit": 0.4,
+     "tau": null
+    },
+    "roi": -0.1199,
+    "n_bets": 737,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_hit": 0.4,
+     "tau": 0.0
+    },
+    "roi": -0.4833,
+    "n_bets": 15,
+    "n_meetings_bet": 12
+   },
+   {
+    "params": {
+     "min_hit": 0.4,
+     "tau": 0.1
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   },
+   {
+    "params": {
+     "min_hit": 0.5,
+     "tau": null
+    },
+    "roi": -0.1614,
+    "n_bets": 487,
+    "n_meetings_bet": 87
+   },
+   {
+    "params": {
+     "min_hit": 0.5,
+     "tau": 0.0
+    },
+    "roi": -0.4038,
+    "n_bets": 13,
+    "n_meetings_bet": 10
+   },
+   {
+    "params": {
+     "min_hit": 0.5,
+     "tau": 0.1
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   },
+   {
+    "params": {
+     "min_hit": 0.6,
+     "tau": null
+    },
+    "roi": -0.1225,
+    "n_bets": 236,
+    "n_meetings_bet": 80
+   },
+   {
+    "params": {
+     "min_hit": 0.6,
+     "tau": 0.0
+    },
+    "roi": -0.4433,
+    "n_bets": 5,
+    "n_meetings_bet": 5
+   },
+   {
+    "params": {
+     "min_hit": 0.6,
+     "tau": 0.1
+    },
+    "roi": null,
+    "n_bets": 0,
+    "n_meetings_bet": 0
+   }
+  ],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ },
+ "qin_banker": {
+  "name": "連贏膽拖",
+  "source": "wf-combined-v1",
+  "params": {
+   "min_p1": 0.3,
+   "min_ratio": 1.5,
+   "n_legs": 2,
+   "tau": 0.0
+  },
+  "tuned": true,
+  "matches_live_config": true,
+  "live_config": {
+   "min_p1": 0.3,
+   "min_ratio": 1.5,
+   "n_legs": 2,
+   "tau": 0.0
+  },
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 2500.0,
+   "returns": 2831.0,
+   "profit": 331.0,
+   "roi": 0.1324,
+   "n_bets": 125,
+   "n_meetings": 88,
+   "n_meetings_bet": 61,
+   "hit_rate": 0.312
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 1920.0,
+   "returns": 1668.5,
+   "profit": -251.5,
+   "roi": -0.131,
+   "n_bets": 96,
+   "n_meetings": 100,
+   "n_meetings_bet": 62,
+   "hit_rate": 0.2812,
+   "roi_ci": [
+    -0.4291,
+    0.1736
+   ],
+   "final_bankroll": 9748.5,
+   "max_drawdown": 382.5,
+   "n_skip_funds": 0
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 10019.0
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 10019.0
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 9979.0
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 9979.0
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 9979.0
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 10059.0
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 10079.0
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 10019.0
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 10019.0
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 9979.0
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 9959.0
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 9919.0
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 9971.0
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 9891.0
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 9891.0
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 9891.0
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 9871.0
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 9871.0
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 9871.0
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 9851.0
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 9831.0
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 9811.0
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 9791.0
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 9795.0
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 9775.0
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 9775.0
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 9858.5
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 9899.5
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 9899.5
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 9962.0
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 9942.0
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 9922.0
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 9922.0
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 9902.0
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 9959.5
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 10045.0
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 10025.0
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 10025.0
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 10025.0
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 10052.0
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 10052.0
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 10063.5
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 10063.5
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 10063.5
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 10095.0
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 10095.0
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 10131.0
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 10071.0
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 10051.0
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 10051.0
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 10051.0
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 9991.0
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 9991.0
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 9971.0
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 9951.0
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 9978.5
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 9978.5
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 9978.5
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 9966.5
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 9926.5
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 9994.0
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 9974.0
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 9974.0
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 9961.0
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 9989.0
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 9969.0
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 9969.0
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 9979.5
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 9979.5
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 9979.5
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 9959.5
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 9939.5
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 9939.5
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 9939.5
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 9939.5
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 9919.5
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 9919.5
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 9919.5
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 9879.5
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 9839.5
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 9799.5
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 9799.5
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 9779.5
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 9779.5
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 9818.5
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 9798.5
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 9778.5
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 9758.5
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 9820.0
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 9820.0
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 9857.0
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 9857.0
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 9797.0
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 9808.5
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 9788.5
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 9768.5
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 9768.5
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 9768.5
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 9768.5
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 9748.5
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 2500.0,
+    "returns": 2831.0,
+    "profit": 331.0,
+    "roi": 0.1324,
+    "n_bets": 125,
+    "n_meetings": 88,
+    "n_meetings_bet": 61,
+    "hit_rate": 0.312
+   },
+   "2025-26": {
+    "stake": 1680.0,
+    "returns": 1438.5,
+    "profit": -241.5,
+    "roi": -0.1438,
+    "n_bets": 84,
+    "n_meetings": 88,
+    "n_meetings_bet": 55,
+    "hit_rate": 0.2857
+   },
+   "2026-27": {
+    "stake": 240.0,
+    "returns": 230.0,
+    "profit": -10.0,
+    "roi": -0.0417,
+    "n_bets": 12,
+    "n_meetings": 12,
+    "n_meetings_bet": 7,
+    "hit_rate": 0.25
+   }
+  },
+  "grid": [
+   {
+    "params": {
+     "min_p1": 0.25,
+     "n_legs": 2,
+     "tau": null
+    },
+    "roi": -0.008,
+    "n_bets": 427,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_p1": 0.25,
+     "n_legs": 2,
+     "tau": 0.0
+    },
+    "roi": 0.0617,
+    "n_bets": 148,
+    "n_meetings_bet": 68
+   },
+   {
+    "params": {
+     "min_p1": 0.25,
+     "n_legs": 3,
+     "tau": null
+    },
+    "roi": -0.1038,
+    "n_bets": 427,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_p1": 0.25,
+     "n_legs": 3,
+     "tau": 0.0
+    },
+    "roi": -0.124,
+    "n_bets": 70,
+    "n_meetings_bet": 47
+   },
+   {
+    "params": {
+     "min_p1": 0.25,
+     "n_legs": 4,
+     "tau": null
+    },
+    "roi": -0.111,
+    "n_bets": 427,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_p1": 0.25,
+     "n_legs": 4,
+     "tau": 0.0
+    },
+    "roi": 0.1776,
+    "n_bets": 53,
+    "n_meetings_bet": 37
+   },
+   {
+    "params": {
+     "min_p1": 0.3,
+     "n_legs": 2,
+     "tau": null
+    },
+    "roi": 0.0652,
+    "n_bets": 346,
+    "n_meetings_bet": 87
+   },
+   {
+    "params": {
+     "min_p1": 0.3,
+     "n_legs": 2,
+     "tau": 0.0
+    },
+    "roi": 0.1324,
+    "n_bets": 125,
+    "n_meetings_bet": 61
+   },
+   {
+    "params": {
+     "min_p1": 0.3,
+     "n_legs": 3,
+     "tau": null
+    },
+    "roi": -0.0429,
+    "n_bets": 346,
+    "n_meetings_bet": 87
+   },
+   {
+    "params": {
+     "min_p1": 0.3,
+     "n_legs": 3,
+     "tau": 0.0
+    },
+    "roi": 0.0658,
+    "n_bets": 55,
+    "n_meetings_bet": 39
+   },
+   {
+    "params": {
+     "min_p1": 0.3,
+     "n_legs": 4,
+     "tau": null
+    },
+    "roi": -0.1248,
+    "n_bets": 346,
+    "n_meetings_bet": 87
+   },
+   {
+    "params": {
+     "min_p1": 0.3,
+     "n_legs": 4,
+     "tau": 0.0
+    },
+    "roi": 0.2888,
+    "n_bets": 40,
+    "n_meetings_bet": 29
+   },
+   {
+    "params": {
+     "min_p1": 0.35,
+     "n_legs": 2,
+     "tau": null
+    },
+    "roi": 0.112,
+    "n_bets": 253,
+    "n_meetings_bet": 80
+   },
+   {
+    "params": {
+     "min_p1": 0.35,
+     "n_legs": 2,
+     "tau": 0.0
+    },
+    "roi": 0.2788,
+    "n_bets": 92,
+    "n_meetings_bet": 51
+   },
+   {
+    "params": {
+     "min_p1": 0.35,
+     "n_legs": 3,
+     "tau": null
+    },
+    "roi": -0.0594,
+    "n_bets": 253,
+    "n_meetings_bet": 80
+   },
+   {
+    "params": {
+     "min_p1": 0.35,
+     "n_legs": 3,
+     "tau": 0.0
+    },
+    "roi": 0.1526,
+    "n_bets": 38,
+    "n_meetings_bet": 31
+   },
+   {
+    "params": {
+     "min_p1": 0.35,
+     "n_legs": 4,
+     "tau": null
+    },
+    "roi": -0.135,
+    "n_bets": 253,
+    "n_meetings_bet": 80
+   },
+   {
+    "params": {
+     "min_p1": 0.35,
+     "n_legs": 4,
+     "tau": 0.0
+    },
+    "roi": 0.5207,
+    "n_bets": 29,
+    "n_meetings_bet": 26
+   },
+   {
+    "params": {
+     "min_p1": 0.4,
+     "n_legs": 2,
+     "tau": null
+    },
+    "roi": 0.0542,
+    "n_bets": 174,
+    "n_meetings_bet": 71
+   },
+   {
+    "params": {
+     "min_p1": 0.4,
+     "n_legs": 2,
+     "tau": 0.0
+    },
+    "roi": 0.2182,
+    "n_bets": 59,
+    "n_meetings_bet": 36
+   },
+   {
+    "params": {
+     "min_p1": 0.4,
+     "n_legs": 3,
+     "tau": null
+    },
+    "roi": -0.108,
+    "n_bets": 174,
+    "n_meetings_bet": 71
+   },
+   {
+    "params": {
+     "min_p1": 0.4,
+     "n_legs": 3,
+     "tau": 0.0
+    },
+    "roi": -0.1648,
+    "n_bets": 27,
+    "n_meetings_bet": 24
+   },
+   {
+    "params": {
+     "min_p1": 0.4,
+     "n_legs": 4,
+     "tau": null
+    },
+    "roi": -0.1925,
+    "n_bets": 174,
+    "n_meetings_bet": 71
+   },
+   {
+    "params": {
+     "min_p1": 0.4,
+     "n_legs": 4,
+     "tau": 0.0
+    },
+    "roi": 0.1338,
+    "n_bets": 20,
+    "n_meetings_bet": 18
+   }
+  ],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ },
+ "tri_banker": {
+  "name": "單T 膽拖",
+  "source": "wf-combined-v1",
+  "params": {
+   "min_top2": 0.4,
+   "min_p2": 0.15,
+   "n_legs": 4,
+   "tau": null
+  },
+  "tuned": true,
+  "matches_live_config": true,
+  "live_config": {
+   "min_top2": 0.4,
+   "min_p2": 0.15,
+   "n_legs": 4,
+   "tau": null
+  },
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 20320.0,
+   "returns": 19747.0,
+   "profit": -573.0,
+   "roi": -0.0282,
+   "n_bets": 508,
+   "n_meetings": 88,
+   "n_meetings_bet": 88,
+   "hit_rate": 0.2303
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 24080.0,
+   "returns": 22744.0,
+   "profit": -1336.0,
+   "roi": -0.0555,
+   "n_bets": 602,
+   "n_meetings": 100,
+   "n_meetings_bet": 100,
+   "hit_rate": 0.2159,
+   "roi_ci": [
+    -0.2035,
+    0.1037
+   ],
+   "final_bankroll": 8664.0,
+   "max_drawdown": 2791.0,
+   "n_skip_funds": 0
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 9840.0
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 9796.0
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 9739.0
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 9619.0
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 9419.0
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 9382.0
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 9709.0
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 9718.0
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 10130.0
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 9994.0
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 10154.0
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 9983.0
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 10106.0
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 10145.0
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 10025.0
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 10118.0
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 9877.0
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 9717.0
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 9685.0
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 9565.0
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 9461.0
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 9301.0
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 9267.0
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 9027.0
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 9104.0
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 9232.0
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 9112.0
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 9139.0
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 9019.0
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 8885.0
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 8725.0
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 8605.0
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 9165.0
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 9290.0
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 9692.0
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 9784.0
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 9855.0
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 9615.0
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 9778.0
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 9901.0
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 10232.0
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 9953.0
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 9840.0
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 9581.0
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 9374.0
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 9333.0
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 9226.0
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 9179.0
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 9109.0
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 9197.0
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 9377.0
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 9097.0
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 8937.0
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 9129.0
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 9496.0
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 9458.0
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 9764.0
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 9951.0
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 9828.0
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 9718.0
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 9797.0
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 9575.0
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 9860.0
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 9732.0
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 9692.0
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 9653.0
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 9450.0
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 9332.0
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 9385.0
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 9288.0
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 9187.0
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 8907.0
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 8968.0
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 8783.0
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 8543.0
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 8343.0
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 8202.0
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 7842.0
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 8382.0
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 8305.0
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 8318.0
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 8158.0
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 8126.0
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 8348.0
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 8186.0
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 8069.0
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 7881.0
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 7641.0
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 7441.0
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 7637.0
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 7517.0
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 7790.0
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 8008.0
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 8171.0
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 8434.0
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 8666.0
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 8696.0
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 8536.0
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 8582.0
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 8664.0
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 20320.0,
+    "returns": 19747.0,
+    "profit": -573.0,
+    "roi": -0.0282,
+    "n_bets": 508,
+    "n_meetings": 88,
+    "n_meetings_bet": 88,
+    "hit_rate": 0.2303
+   },
+   "2025-26": {
+    "stake": 21440.0,
+    "returns": 19081.0,
+    "profit": -2359.0,
+    "roi": -0.11,
+    "n_bets": 536,
+    "n_meetings": 88,
+    "n_meetings_bet": 88,
+    "hit_rate": 0.2071
+   },
+   "2026-27": {
+    "stake": 2640.0,
+    "returns": 3663.0,
+    "profit": 1023.0,
+    "roi": 0.3875,
+    "n_bets": 66,
+    "n_meetings": 12,
+    "n_meetings_bet": 12,
+    "hit_rate": 0.2879
+   }
+  },
+  "grid": [
+   {
+    "params": {
+     "min_top2": 0.4,
+     "n_legs": 3,
+     "tau": null
+    },
+    "roi": -0.053,
+    "n_bets": 509,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_top2": 0.4,
+     "n_legs": 3,
+     "tau": 0.0
+    },
+    "roi": -0.1503,
+    "n_bets": 100,
+    "n_meetings_bet": 60
+   },
+   {
+    "params": {
+     "min_top2": 0.4,
+     "n_legs": 4,
+     "tau": null
+    },
+    "roi": -0.0282,
+    "n_bets": 508,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_top2": 0.4,
+     "n_legs": 4,
+     "tau": 0.0
+    },
+    "roi": 0.0478,
+    "n_bets": 69,
+    "n_meetings_bet": 49
+   },
+   {
+    "params": {
+     "min_top2": 0.4,
+     "n_legs": 5,
+     "tau": null
+    },
+    "roi": -0.0289,
+    "n_bets": 506,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_top2": 0.4,
+     "n_legs": 5,
+     "tau": 0.0
+    },
+    "roi": 0.1376,
+    "n_bets": 51,
+    "n_meetings_bet": 41
+   },
+   {
+    "params": {
+     "min_top2": 0.5,
+     "n_legs": 3,
+     "tau": null
+    },
+    "roi": -0.185,
+    "n_bets": 272,
+    "n_meetings_bet": 84
+   },
+   {
+    "params": {
+     "min_top2": 0.5,
+     "n_legs": 3,
+     "tau": 0.0
+    },
+    "roi": -0.1745,
+    "n_bets": 55,
+    "n_meetings_bet": 37
+   },
+   {
+    "params": {
+     "min_top2": 0.5,
+     "n_legs": 4,
+     "tau": null
+    },
+    "roi": -0.1232,
+    "n_bets": 271,
+    "n_meetings_bet": 84
+   },
+   {
+    "params": {
+     "min_top2": 0.5,
+     "n_legs": 4,
+     "tau": 0.0
+    },
+    "roi": 0.0946,
+    "n_bets": 37,
+    "n_meetings_bet": 27
+   },
+   {
+    "params": {
+     "min_top2": 0.5,
+     "n_legs": 5,
+     "tau": null
+    },
+    "roi": -0.0885,
+    "n_bets": 269,
+    "n_meetings_bet": 84
+   },
+   {
+    "params": {
+     "min_top2": 0.5,
+     "n_legs": 5,
+     "tau": 0.0
+    },
+    "roi": 0.4481,
+    "n_bets": 27,
+    "n_meetings_bet": 24
+   },
+   {
+    "params": {
+     "min_top2": 0.6,
+     "n_legs": 3,
+     "tau": null
+    },
+    "roi": -0.1902,
+    "n_bets": 95,
+    "n_meetings_bet": 57
+   },
+   {
+    "params": {
+     "min_top2": 0.6,
+     "n_legs": 3,
+     "tau": 0.0
+    },
+    "roi": 0.1729,
+    "n_bets": 16,
+    "n_meetings_bet": 14
+   },
+   {
+    "params": {
+     "min_top2": 0.6,
+     "n_legs": 4,
+     "tau": null
+    },
+    "roi": -0.0311,
+    "n_bets": 94,
+    "n_meetings_bet": 56
+   },
+   {
+    "params": {
+     "min_top2": 0.6,
+     "n_legs": 4,
+     "tau": 0.0
+    },
+    "roi": 0.56,
+    "n_bets": 10,
+    "n_meetings_bet": 8
+   },
+   {
+    "params": {
+     "min_top2": 0.6,
+     "n_legs": 5,
+     "tau": null
+    },
+    "roi": 0.033,
+    "n_bets": 92,
+    "n_meetings_bet": 55
+   },
+   {
+    "params": {
+     "min_top2": 0.6,
+     "n_legs": 5,
+     "tau": 0.0
+    },
+    "roi": 0.6967,
+    "n_bets": 6,
+    "n_meetings_bet": 5
+   }
+  ],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ },
+ "pla_parlay": {
+  "name": "位置過關",
+  "source": "wf-combined-v1",
+  "params": {
+   "n_legs": 3,
+   "spec": "3x4",
+   "min_p": 0.65,
+   "min_ev": 0.85
+  },
+  "tuned": true,
+  "matches_live_config": true,
+  "live_config": {
+   "n_legs": 3,
+   "spec": "3x4",
+   "min_p": 0.65,
+   "min_ev": 0.85
+  },
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 2680.0,
+   "returns": 2188.96,
+   "profit": -491.04,
+   "roi": -0.1832,
+   "n_bets": 67,
+   "n_meetings": 88,
+   "n_meetings_bet": 67,
+   "hit_rate": 0.8955
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 2640.0,
+   "returns": 1681.58,
+   "profit": -958.42,
+   "roi": -0.363,
+   "n_bets": 66,
+   "n_meetings": 100,
+   "n_meetings_bet": 66,
+   "hit_rate": 0.8333,
+   "roi_ci": [
+    -0.488,
+    -0.2231
+   ],
+   "final_bankroll": 9041.62,
+   "max_drawdown": 964.87,
+   "n_skip_funds": 0
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 10006.49
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 10006.49
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 9966.49
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 9966.49
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 9966.49
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 9976.21
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 9936.21
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 9958.5
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 9958.5
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 9965.04
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 9965.04
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 9937.12
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 9961.44
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 9937.69
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 9937.69
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 9937.69
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 9948.95
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 9929.88
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 9929.88
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 9929.88
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 9889.88
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 9860.99
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 9860.99
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 9834.22
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 9794.22
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 9794.22
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 9794.22
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 9764.42
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 9764.42
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 9724.42
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 9724.42
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 9699.42
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 9699.42
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 9673.17
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 9673.17
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 9684.43
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 9684.43
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 9684.43
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 9684.43
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 9689.36
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 9689.36
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 9664.99
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 9664.99
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 9693.32
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 9693.32
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 9653.32
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 9666.45
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 9673.13
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 9673.13
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 9687.85
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 9687.85
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 9662.8
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 9662.8
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 9678.97
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 9678.97
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 9681.09
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 9681.09
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 9654.22
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 9654.22
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 9624.42
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 9601.22
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 9572.33
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 9552.95
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 9525.6
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 9503.8
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 9474.0
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 9434.0
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 9394.0
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 9394.0
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 9354.0
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 9370.64
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 9346.26
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 9366.36
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 9338.99
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 9312.79
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 9287.74
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 9263.99
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 9263.99
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 9237.79
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 9254.49
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 9228.86
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 9228.86
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 9201.49
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 9161.49
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 9166.42
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 9142.62
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 9117.62
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 9096.52
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 9070.66
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 9070.66
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 9098.58
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 9098.58
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 9116.66
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 9089.79
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 9112.08
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 9087.68
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 9047.68
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 9066.0
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 9066.0
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 9041.62
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 2680.0,
+    "returns": 2188.96,
+    "profit": -491.04,
+    "roi": -0.1832,
+    "n_bets": 67,
+    "n_meetings": 88,
+    "n_meetings_bet": 67,
+    "hit_rate": 0.8955
+   },
+   "2025-26": {
+    "stake": 2280.0,
+    "returns": 1376.48,
+    "profit": -903.52,
+    "roi": -0.3963,
+    "n_bets": 57,
+    "n_meetings": 88,
+    "n_meetings_bet": 57,
+    "hit_rate": 0.8246
+   },
+   "2026-27": {
+    "stake": 360.0,
+    "returns": 305.1,
+    "profit": -54.9,
+    "roi": -0.1525,
+    "n_bets": 9,
+    "n_meetings": 12,
+    "n_meetings_bet": 9,
+    "hit_rate": 0.8889
+   }
+  },
+  "grid": [
+   {
+    "params": {
+     "min_p": 0.0,
+     "min_ev": null
+    },
+    "roi": -0.2929,
+    "n_bets": 88,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_p": 0.0,
+     "min_ev": 0.85
+    },
+    "roi": -0.2931,
+    "n_bets": 88,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_p": 0.0,
+     "min_ev": 0.9
+    },
+    "roi": -0.2251,
+    "n_bets": 9,
+    "n_meetings_bet": 9
+   },
+   {
+    "params": {
+     "min_p": 0.5,
+     "min_ev": null
+    },
+    "roi": -0.2929,
+    "n_bets": 88,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_p": 0.5,
+     "min_ev": 0.85
+    },
+    "roi": -0.2931,
+    "n_bets": 88,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_p": 0.5,
+     "min_ev": 0.9
+    },
+    "roi": -0.4636,
+    "n_bets": 8,
+    "n_meetings_bet": 8
+   },
+   {
+    "params": {
+     "min_p": 0.55,
+     "min_ev": null
+    },
+    "roi": -0.2929,
+    "n_bets": 88,
+    "n_meetings_bet": 88
+   },
+   {
+    "params": {
+     "min_p": 0.55,
+     "min_ev": 0.85
+    },
+    "roi": -0.2829,
+    "n_bets": 86,
+    "n_meetings_bet": 86
+   },
+   {
+    "params": {
+     "min_p": 0.55,
+     "min_ev": 0.9
+    },
+    "roi": -0.4815,
+    "n_bets": 5,
+    "n_meetings_bet": 5
+   },
+   {
+    "params": {
+     "min_p": 0.6,
+     "min_ev": null
+    },
+    "roi": -0.2886,
+    "n_bets": 86,
+    "n_meetings_bet": 86
+   },
+   {
+    "params": {
+     "min_p": 0.6,
+     "min_ev": 0.85
+    },
+    "roi": -0.2534,
+    "n_bets": 79,
+    "n_meetings_bet": 79
+   },
+   {
+    "params": {
+     "min_p": 0.6,
+     "min_ev": 0.9
+    },
+    "roi": -0.1358,
+    "n_bets": 3,
+    "n_meetings_bet": 3
+   },
+   {
+    "params": {
+     "min_p": 0.65,
+     "min_ev": null
+    },
+    "roi": -0.2772,
+    "n_bets": 74,
+    "n_meetings_bet": 74
+   },
+   {
+    "params": {
+     "min_p": 0.65,
+     "min_ev": 0.85
+    },
+    "roi": -0.1832,
+    "n_bets": 67,
+    "n_meetings_bet": 67
+   },
+   {
+    "params": {
+     "min_p": 0.65,
+     "min_ev": 0.9
+    },
+    "roi": 0.1256,
+    "n_bets": 2,
+    "n_meetings_bet": 2
+   }
+  ],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ },
+ "favourite": {
+  "name": "跟大熱（對照組）",
+  "source": "wf-combined-v1",
+  "params": {},
+  "tuned": false,
+  "matches_live_config": true,
+  "live_config": {},
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 16940.0,
+   "returns": 14987.6,
+   "profit": -1952.4,
+   "roi": -0.1153,
+   "n_bets": 1694,
+   "n_meetings": 88,
+   "n_meetings_bet": 88,
+   "hit_rate": 0.4829
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 19620.0,
+   "returns": 16086.7,
+   "profit": -3533.3,
+   "roi": -0.1801,
+   "n_bets": 1962,
+   "n_meetings": 100,
+   "n_meetings_bet": 100,
+   "hit_rate": 0.4399,
+   "roi_ci": [
+    -0.2393,
+    -0.1235
+   ],
+   "final_bankroll": 6466.7,
+   "max_drawdown": 3533.3,
+   "n_skip_funds": 0
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 9920.6
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 9885.2
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 9913.2
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 9929.7
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 9835.7
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 9854.4
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 9838.4
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 9790.4
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 9839.4
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 9818.5
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 9882.5
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 9752.5
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 9713.5
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 9624.5
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 9547.0
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 9549.5
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 9542.5
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 9469.0
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 9366.0
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 9347.0
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 9262.0
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 9295.6
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 9219.6
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 9180.6
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 9196.1
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 9098.1
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 9139.6
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 9163.8
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 9058.8
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 8992.8
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 8946.3
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 8946.3
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 8864.8
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 8909.8
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 8883.8
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 8844.3
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 8811.8
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 8746.3
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 8723.3
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 8629.9
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 8657.9
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 8591.4
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 8474.9
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 8461.4
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 8410.4
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 8334.4
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 8283.5
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 8293.7
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 8190.2
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 8208.2
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 8249.7
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 8288.7
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 8169.2
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 8148.7
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 8157.2
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 8126.9
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 8201.9
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 8357.5
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 8265.0
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 8146.7
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 8079.2
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 7943.3
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 7893.3
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 7777.3
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 7724.8
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 7598.0
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 7567.0
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 7513.0
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 7530.0
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 7489.0
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 7468.5
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 7396.5
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 7455.0
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 7320.6
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 7382.1
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 7396.6
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 7408.1
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 7386.6
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 7304.6
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 7195.6
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 7155.1
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 7210.6
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 7260.2
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 7192.2
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 7146.9
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 7142.9
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 7113.9
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 7039.4
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 7046.5
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 7002.0
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 7028.0
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 7097.0
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 7006.5
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 6933.6
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 6855.6
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 6756.1
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 6639.6
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 6605.2
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 6572.7
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 6466.7
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 16940.0,
+    "returns": 14987.6,
+    "profit": -1952.4,
+    "roi": -0.1153,
+    "n_bets": 1694,
+    "n_meetings": 88,
+    "n_meetings_bet": 88,
+    "hit_rate": 0.4829
+   },
+   "2025-26": {
+    "stake": 17300.0,
+    "returns": 14339.4,
+    "profit": -2960.6,
+    "roi": -0.1711,
+    "n_bets": 1730,
+    "n_meetings": 88,
+    "n_meetings_bet": 88,
+    "hit_rate": 0.4439
+   },
+   "2026-27": {
+    "stake": 2320.0,
+    "returns": 1747.3,
+    "profit": -572.7,
+    "roi": -0.2469,
+    "n_bets": 232,
+    "n_meetings": 12,
+    "n_meetings_bet": 12,
+    "hit_rate": 0.4095
+   }
+  },
+  "grid": [],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ },
+ "monkey": {
+  "name": "隨機猴子（對照組）",
+  "source": "wf-combined-v1",
+  "params": {},
+  "tuned": false,
+  "matches_live_config": true,
+  "live_config": {},
+  "in_sample": {
+   "period": "2024-25",
+   "stake": 8470.0,
+   "returns": 6931.9,
+   "profit": -1538.1,
+   "roi": -0.1816,
+   "n_bets": 847,
+   "n_meetings": 88,
+   "n_meetings_bet": 88,
+   "hit_rate": 0.2645
+  },
+  "oos": {
+   "period": "2025-26 + 2026-27",
+   "stake": 9810.0,
+   "returns": 7650.1,
+   "profit": -2159.9,
+   "roi": -0.2202,
+   "n_bets": 981,
+   "n_meetings": 100,
+   "n_meetings_bet": 100,
+   "hit_rate": 0.2538,
+   "roi_ci": [
+    -0.334,
+    -0.1022
+   ],
+   "final_bankroll": 7840.1,
+   "max_drawdown": 2776.9,
+   "n_skip_funds": 0
+  },
+  "curve": [
+   {
+    "date": "2025-09-01",
+    "bankroll": 10000.0
+   },
+   {
+    "date": "2025-09-07",
+    "venue": "ST",
+    "bankroll": 9960.0
+   },
+   {
+    "date": "2025-09-10",
+    "venue": "HV",
+    "bankroll": 10042.5
+   },
+   {
+    "date": "2025-09-14",
+    "venue": "ST",
+    "bankroll": 9971.0
+   },
+   {
+    "date": "2025-09-17",
+    "venue": "HV",
+    "bankroll": 9945.0
+   },
+   {
+    "date": "2025-09-21",
+    "venue": "ST",
+    "bankroll": 9918.0
+   },
+   {
+    "date": "2025-09-28",
+    "venue": "ST",
+    "bankroll": 10090.5
+   },
+   {
+    "date": "2025-10-01",
+    "venue": "ST",
+    "bankroll": 10156.0
+   },
+   {
+    "date": "2025-10-04",
+    "venue": "ST",
+    "bankroll": 10148.5
+   },
+   {
+    "date": "2025-10-08",
+    "venue": "HV",
+    "bankroll": 10142.5
+   },
+   {
+    "date": "2025-10-12",
+    "venue": "ST",
+    "bankroll": 10081.0
+   },
+   {
+    "date": "2025-10-15",
+    "venue": "HV",
+    "bankroll": 10018.0
+   },
+   {
+    "date": "2025-10-19",
+    "venue": "ST",
+    "bankroll": 10083.0
+   },
+   {
+    "date": "2025-10-22",
+    "venue": "HV",
+    "bankroll": 10005.0
+   },
+   {
+    "date": "2025-10-26",
+    "venue": "ST",
+    "bankroll": 9918.0
+   },
+   {
+    "date": "2025-10-30",
+    "venue": "ST",
+    "bankroll": 9866.5
+   },
+   {
+    "date": "2025-11-02",
+    "venue": "HV",
+    "bankroll": 9766.5
+   },
+   {
+    "date": "2025-11-05",
+    "venue": "HV",
+    "bankroll": 9732.5
+   },
+   {
+    "date": "2025-11-09",
+    "venue": "ST",
+    "bankroll": 9696.0
+   },
+   {
+    "date": "2025-11-12",
+    "venue": "HV",
+    "bankroll": 9671.5
+   },
+   {
+    "date": "2025-11-15",
+    "venue": "ST",
+    "bankroll": 9601.0
+   },
+   {
+    "date": "2025-11-19",
+    "venue": "HV",
+    "bankroll": 9641.0
+   },
+   {
+    "date": "2025-11-23",
+    "venue": "ST",
+    "bankroll": 9590.1
+   },
+   {
+    "date": "2025-11-26",
+    "venue": "HV",
+    "bankroll": 9500.1
+   },
+   {
+    "date": "2025-11-30",
+    "venue": "ST",
+    "bankroll": 9468.6
+   },
+   {
+    "date": "2025-12-03",
+    "venue": "HV",
+    "bankroll": 9407.6
+   },
+   {
+    "date": "2025-12-07",
+    "venue": "ST",
+    "bankroll": 9411.6
+   },
+   {
+    "date": "2025-12-10",
+    "venue": "HV",
+    "bankroll": 9381.6
+   },
+   {
+    "date": "2025-12-14",
+    "venue": "ST",
+    "bankroll": 9410.7
+   },
+   {
+    "date": "2025-12-17",
+    "venue": "HV",
+    "bankroll": 9401.2
+   },
+   {
+    "date": "2025-12-20",
+    "venue": "ST",
+    "bankroll": 9305.2
+   },
+   {
+    "date": "2025-12-23",
+    "venue": "HV",
+    "bankroll": 9284.2
+   },
+   {
+    "date": "2025-12-27",
+    "venue": "ST",
+    "bankroll": 9365.7
+   },
+   {
+    "date": "2026-01-01",
+    "venue": "ST",
+    "bankroll": 9277.2
+   },
+   {
+    "date": "2026-01-04",
+    "venue": "ST",
+    "bankroll": 9297.7
+   },
+   {
+    "date": "2026-01-07",
+    "venue": "HV",
+    "bankroll": 9280.7
+   },
+   {
+    "date": "2026-01-11",
+    "venue": "ST",
+    "bankroll": 9229.2
+   },
+   {
+    "date": "2026-01-14",
+    "venue": "HV",
+    "bankroll": 9187.7
+   },
+   {
+    "date": "2026-01-18",
+    "venue": "ST",
+    "bankroll": 9166.7
+   },
+   {
+    "date": "2026-01-21",
+    "venue": "ST",
+    "bankroll": 9120.2
+   },
+   {
+    "date": "2026-01-25",
+    "venue": "ST",
+    "bankroll": 9093.2
+   },
+   {
+    "date": "2026-01-28",
+    "venue": "HV",
+    "bankroll": 9063.7
+   },
+   {
+    "date": "2026-02-01",
+    "venue": "ST",
+    "bankroll": 9068.2
+   },
+   {
+    "date": "2026-02-04",
+    "venue": "HV",
+    "bankroll": 9089.7
+   },
+   {
+    "date": "2026-02-08",
+    "venue": "ST",
+    "bankroll": 9034.2
+   },
+   {
+    "date": "2026-02-11",
+    "venue": "HV",
+    "bankroll": 8944.2
+   },
+   {
+    "date": "2026-02-14",
+    "venue": "ST",
+    "bankroll": 8867.2
+   },
+   {
+    "date": "2026-02-19",
+    "venue": "ST",
+    "bankroll": 8819.8
+   },
+   {
+    "date": "2026-02-22",
+    "venue": "ST",
+    "bankroll": 8774.8
+   },
+   {
+    "date": "2026-02-25",
+    "venue": "HV",
+    "bankroll": 8728.8
+   },
+   {
+    "date": "2026-03-01",
+    "venue": "ST",
+    "bankroll": 8671.3
+   },
+   {
+    "date": "2026-03-04",
+    "venue": "HV",
+    "bankroll": 8634.3
+   },
+   {
+    "date": "2026-03-08",
+    "venue": "ST",
+    "bankroll": 8570.3
+   },
+   {
+    "date": "2026-03-11",
+    "venue": "HV",
+    "bankroll": 8586.3
+   },
+   {
+    "date": "2026-03-15",
+    "venue": "ST",
+    "bankroll": 8548.3
+   },
+   {
+    "date": "2026-03-18",
+    "venue": "HV",
+    "bankroll": 8474.3
+   },
+   {
+    "date": "2026-03-22",
+    "venue": "ST",
+    "bankroll": 8476.4
+   },
+   {
+    "date": "2026-03-25",
+    "venue": "HV",
+    "bankroll": 8459.4
+   },
+   {
+    "date": "2026-03-29",
+    "venue": "ST",
+    "bankroll": 8407.4
+   },
+   {
+    "date": "2026-04-01",
+    "venue": "ST",
+    "bankroll": 8378.4
+   },
+   {
+    "date": "2026-04-06",
+    "venue": "ST",
+    "bankroll": 8341.9
+   },
+   {
+    "date": "2026-04-08",
+    "venue": "HV",
+    "bankroll": 8295.9
+   },
+   {
+    "date": "2026-04-12",
+    "venue": "ST",
+    "bankroll": 8244.4
+   },
+   {
+    "date": "2026-04-15",
+    "venue": "HV",
+    "bankroll": 8220.9
+   },
+   {
+    "date": "2026-04-19",
+    "venue": "ST",
+    "bankroll": 8123.9
+   },
+   {
+    "date": "2026-04-22",
+    "venue": "HV",
+    "bankroll": 8091.9
+   },
+   {
+    "date": "2026-04-26",
+    "venue": "ST",
+    "bankroll": 8086.0
+   },
+   {
+    "date": "2026-04-29",
+    "venue": "HV",
+    "bankroll": 8060.5
+   },
+   {
+    "date": "2026-05-03",
+    "venue": "ST",
+    "bankroll": 7998.0
+   },
+   {
+    "date": "2026-05-06",
+    "venue": "ST",
+    "bankroll": 7974.5
+   },
+   {
+    "date": "2026-05-09",
+    "venue": "ST",
+    "bankroll": 8016.5
+   },
+   {
+    "date": "2026-05-13",
+    "venue": "HV",
+    "bankroll": 8010.0
+   },
+   {
+    "date": "2026-05-17",
+    "venue": "ST",
+    "bankroll": 7924.5
+   },
+   {
+    "date": "2026-05-20",
+    "venue": "HV",
+    "bankroll": 7946.0
+   },
+   {
+    "date": "2026-05-24",
+    "venue": "ST",
+    "bankroll": 7892.0
+   },
+   {
+    "date": "2026-05-27",
+    "venue": "HV",
+    "bankroll": 7937.0
+   },
+   {
+    "date": "2026-05-31",
+    "venue": "ST",
+    "bankroll": 7877.0
+   },
+   {
+    "date": "2026-06-03",
+    "venue": "HV",
+    "bankroll": 7800.5
+   },
+   {
+    "date": "2026-06-07",
+    "venue": "ST",
+    "bankroll": 7803.5
+   },
+   {
+    "date": "2026-06-10",
+    "venue": "HV",
+    "bankroll": 7727.0
+   },
+   {
+    "date": "2026-06-13",
+    "venue": "ST",
+    "bankroll": 7693.5
+   },
+   {
+    "date": "2026-06-21",
+    "venue": "ST",
+    "bankroll": 7694.5
+   },
+   {
+    "date": "2026-06-24",
+    "venue": "HV",
+    "bankroll": 7635.5
+   },
+   {
+    "date": "2026-06-27",
+    "venue": "ST",
+    "bankroll": 7599.6
+   },
+   {
+    "date": "2026-07-01",
+    "venue": "ST",
+    "bankroll": 7536.6
+   },
+   {
+    "date": "2026-07-04",
+    "venue": "ST",
+    "bankroll": 7538.6
+   },
+   {
+    "date": "2026-07-08",
+    "venue": "HV",
+    "bankroll": 7657.1
+   },
+   {
+    "date": "2026-07-12",
+    "venue": "ST",
+    "bankroll": 7622.1
+   },
+   {
+    "date": "2026-07-15",
+    "venue": "HV",
+    "bankroll": 7634.1
+   },
+   {
+    "date": "2026-09-06",
+    "venue": "ST",
+    "bankroll": 7591.1
+   },
+   {
+    "date": "2026-09-09",
+    "venue": "HV",
+    "bankroll": 7530.6
+   },
+   {
+    "date": "2026-09-13",
+    "venue": "ST",
+    "bankroll": 7477.6
+   },
+   {
+    "date": "2026-09-16",
+    "venue": "HV",
+    "bankroll": 7428.1
+   },
+   {
+    "date": "2026-09-23",
+    "venue": "HV",
+    "bankroll": 7465.1
+   },
+   {
+    "date": "2026-09-27",
+    "venue": "ST",
+    "bankroll": 7495.1
+   },
+   {
+    "date": "2026-10-01",
+    "venue": "ST",
+    "bankroll": 7434.6
+   },
+   {
+    "date": "2026-10-04",
+    "venue": "ST",
+    "bankroll": 7413.6
+   },
+   {
+    "date": "2026-10-07",
+    "venue": "HV",
+    "bankroll": 7379.1
+   },
+   {
+    "date": "2026-10-11",
+    "venue": "ST",
+    "bankroll": 7658.1
+   },
+   {
+    "date": "2026-10-14",
+    "venue": "HV",
+    "bankroll": 7648.6
+   },
+   {
+    "date": "2026-10-19",
+    "venue": "ST",
+    "bankroll": 7840.1
+   }
+  ],
+  "by_season": {
+   "2024-25": {
+    "stake": 8470.0,
+    "returns": 6931.9,
+    "profit": -1538.1,
+    "roi": -0.1816,
+    "n_bets": 847,
+    "n_meetings": 88,
+    "n_meetings_bet": 88,
+    "hit_rate": 0.2645
+   },
+   "2025-26": {
+    "stake": 8650.0,
+    "returns": 6284.1,
+    "profit": -2365.9,
+    "roi": -0.2735,
+    "n_bets": 865,
+    "n_meetings": 88,
+    "n_meetings_bet": 88,
+    "hit_rate": 0.2509
+   },
+   "2026-27": {
+    "stake": 1160.0,
+    "returns": 1366.0,
+    "profit": 206.0,
+    "roi": 0.1776,
+    "n_bets": 116,
+    "n_meetings": 12,
+    "n_meetings_bet": 12,
+    "hit_rate": 0.2759
+   }
+  },
+  "grid": [],
+  "caveat": "回測用最終獨贏賠率（開跑前先知道），其他彩池派彩由獨贏賠率估計；真實賽前 2 小時落注嘅結果會差啲。門檻只用 2024-25 季調校，2025-26 + 2026-27 係樣本外。"
+ }
+}

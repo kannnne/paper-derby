@@ -1,0 +1,19 @@
+# local only
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+*.tmp
+# binary DB is rebuilt from data/db/*.sql (text dump tracked in git)
+data/hkjc.db
+data/hkjc.db-*
+data/*.db
+data/raw/
+data/logs/
+data/models/
+data/backfill*.log
+# local macOS scheduler (contains local paths)
+scripts/*.plist
+scripts/install_scheduler.sh
+scripts/uninstall_scheduler.sh

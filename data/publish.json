@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "git": false,
+  "remote": "",
+  "branch": "main",
+  "note": "git=false: site/ 屬主 repo，由 GitHub Actions 發佈"
+}
