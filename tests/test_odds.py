@@ -88,7 +88,7 @@ def test_parse_live_and_not_open():
     assert set(closed) == {"WIN", "PLA", "QIN", "QPL"}
     assert all(book == {} for book in closed.values())
     assert closed.meta["WIN"] == {"status": "DEFINED", "sell_status": "STOP_SELL",
-                                  "last_update": None, "n_nodes": 0}
+                                  "last_update": None, "n_nodes": 0, "leg_races": [1]}
     assert not closed.scratched
 
 

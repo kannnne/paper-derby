@@ -338,7 +338,7 @@ def _combo_reason(r, sub):
         c = _cand("combo", f"{pair}只合作過{n:.0f}次", sub)
         c["strength"] *= 0.5
         return [c]
-    txt = f"{pair}近年上名率{_pct(pl)}（{n:.0f}次）"
+    txt = f"{pair}近年入三甲率{_pct(pl)}（{n:.0f}次）"
     if sub < 50:
         txt += "，偏低"
     return [_cand("combo", txt, sub)]
@@ -359,7 +359,7 @@ def _draw_reason(r, sub):
     t = f"檔位{d:.0f}{pos}"
     if res is not None and abs(res) >= 0.01 and (res > 0) == (sub >= 50):
         side = "較高" if res > 0 else "較低"
-        t += f"，此場地路程同區檔位上名率{side}（{'+' if res > 0 else '−'}{abs(res) * 100:.0f}個百分點）"
+        t += f"，此場地路程同區檔位入三甲率{side}（{'+' if res > 0 else '−'}{abs(res) * 100:.0f}個百分點）"
     elif sub >= 80:
         t += "，同場檔位較有利"
     elif sub <= 20:
@@ -391,7 +391,7 @@ def _fit_reason(r, sub):
         if m is None:
             continue
         rate = m / n
-        txt = f"{label}{n:.0f}戰{m}上名" if m > 0 else f"{label}{n:.0f}戰未上名"
+        txt = f"{label}{n:.0f}戰{m}次入三甲" if m > 0 else f"{label}{n:.0f}戰未入過三甲"
         # evidence-weighted deviation from the ~25% base place rate
         opts.append(((rate - 0.25) * min(n, 8) / 8.0, txt))
     if not opts:

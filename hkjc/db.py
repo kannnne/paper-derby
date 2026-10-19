@@ -231,6 +231,14 @@ CREATE TABLE IF NOT EXISTS bot_decisions (
     created_at TEXT,
     PRIMARY KEY (run_id, bot_id, race_no, structure)
 );
+CREATE TABLE IF NOT EXISTS picks (               -- 今日精選 (hkjc/picks.py) of one pre-meeting run
+    run_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    venue TEXT NOT NULL,
+    payload TEXT NOT NULL,           -- JSON picks dict (SPEC_V2 第三版; items carry internal tickets)
+    created_at TEXT,
+    PRIMARY KEY (run_id, date, venue)
+);
 """
 
 

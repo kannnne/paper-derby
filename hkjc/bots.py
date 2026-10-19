@@ -1,4 +1,4 @@
-"""10 paper-trading robots (10 隻機械人).  SIMULATION ONLY - never places real bets.
+"""Paper-trading robots (10 隻機械人 + 每日精選 daily_picks).  SIMULATION ONLY - never places real bets.
 
 Public API (SPEC_V2.md)
 -----------------------
@@ -83,6 +83,7 @@ _CFG = {
     "pla_parlay": {"kind": "pla_parlay", "n_legs": 3, "spec": "3x4", "min_p": 0.65, "min_ev": 0.85},
     "favourite": {"kind": "favourite"},
     "monkey": {"kind": "monkey"},
+    "daily_picks": {"kind": "daily_picks"},
 }
 
 # tuning grids (2024-25 only).  Robots without a grid have nothing to tune.
@@ -98,6 +99,7 @@ GRIDS = {
     "tri_banker": {"min_top2": [0.4, 0.5, 0.6], "n_legs": [3, 4, 5], "tau": [None, 0.0]},
     "pla_parlay": {"min_p": [0.0, 0.5, 0.55, 0.6, 0.65], "min_ev": [None, 0.85, 0.9]},
 }
+BACKTEST_SEPARATE = {"daily_picks"}   # robots backtested elsewhere (hkjc.picks.backtest_picks)
 MIN_IS_BETS = {"pla_parlay": 20}      # parlay: >= 20 meetings with a ticket; others >= 100 tickets
 DEFAULT_MIN_IS_BETS = 100
 
@@ -111,8 +113,8 @@ _LOW_EV_NOTE = "（門檻低過 1，因為賽前估計賠率通常偏保守；�
 
 def _describe(bid, c):
     if bid == "place_only":
-        return ("每場計每隻馬嘅「上名率 × 位置賠率」（期望值），"
-                f"期望值{_ev_txt(c['min_ev'])}" + (f"而且上名率≥{c['min_p']:.0%}" if c["min_p"] else "")
+        return ("每場計每隻馬嘅「入三甲機率 × 位置賠率」（期望值），"
+                f"期望值{_ev_txt(c['min_ev'])}" + (f"而且入三甲機率≥{c['min_p']:.0%}" if c["min_p"] else "")
                 + f"先買位置，每場最多 {c['max_per_race']} 隻，每隻 $10"
                 + (_LOW_EV_NOTE if c["min_ev"] < 1 else "") + "。"
                 "唔夠門檻就成場唔買，所以有啲日子可能一注都冇。只買單場位置，唔玩過關、唔玩其他彩池。")
@@ -130,7 +132,7 @@ def _describe(bid, c):
                 + " 先買獨贏 $10" + (_LOW_EV_NOTE if c["min_ev"] < 1 else "")
                 + "。即係買模型覺得被低估嘅馬，中嘅次數少但一中就多。")
     if bid == "qpl_box":
-        return ("睇模型頭三選（按上名率）夠唔夠集中：三隻之中至少兩隻跑入前三嘅機率"
+        return ("睇模型頭三選（按入三甲機率）夠唔夠集中：三隻之中至少兩隻跑入前三嘅機率"
                 f"≥{c['min_hit']:.0%}" + ("" if c["tau"] is None else f"、預期回報≥{c['tau']:+.0%}")
                 + " 就買呢三隻嘅位置Q 複式（3 注 $30）；唔夠集中就唔買。少過 7 匹出賽冇位置Q。")
     if bid == "qin_banker":
@@ -143,12 +145,17 @@ def _describe(bid, c):
                 + ("" if c["tau"] is None else f"，預期回報要≥{c['tau']:+.0%}")
                 + "。要頭三名全中先有派彩，機會細但派彩大。")
     if bid == "pla_parlay":
-        return (f"全日揀模型上名率最高嘅 {c['n_legs']} 場首選，每場首選上名率都要≥{c['min_p']:.0%}"
+        return (f"全日揀模型入三甲機率最高嘅 {c['n_legs']} 場首選，每場首選入三甲機率都要≥{c['min_p']:.0%}"
                 + ("" if c["min_ev"] is None else f"、位置期望值≥{c['min_ev']:.2f}")
                 + f"，就買位置 {c['spec']} 過關（3 個二關 + 1 個三關 = 4 注 $40）。唔夠 {c['n_legs']} 場合格就成日唔買。")
     if bid == "favourite":
         return ("每場揀獨贏賠率最低嗰隻（大熱），買獨贏 $10 + 位置 $10。完全唔用模型，"
                 "係對照組：睇吓其他機械人有冇贏到「跟大熱」。未有賠率時用模型首選代替。")
+    if bid == "daily_picks":
+        return ("照「今日精選」落注：分析引擎（hkjc/picks.py）每場比較獨贏、位置、連贏、位置Q、二重彩、單T、"
+                "三重彩、四連環、四重彩、孖寶、三寶同過關嘅各種結構，按模型機率計預計命中同估計回報，"
+                "只有過咗門檻（用 2024-25 季歷史數據定）嘅「精選」項目先買（「參考」項目唔買），每注 $10，"
+                "每日最多 8 項、$1,500。冇精選嘅日子就成日唔買。用嚟追蹤精選嘅真實（模擬）成績。")
     if bid == "monkey":
         return ("每場隨機揀一隻馬買位置 $10，隨機種子用場次編號（race_id），所以結果可以重現。"
                 "代表「完全唔識睇馬」，長遠應該大約蝕抽水嗰個數，係最基本嘅對照組。")
@@ -156,7 +163,7 @@ def _describe(bid, c):
 
 
 _META = [
-    ("place_only", "位置專家", "只買單場位置，揀上名機會高又抵食嘅馬"),
+    ("place_only", "位置專家", "只買單場位置，揀入三甲機會高又抵食嘅馬"),
     ("fixed_combo", "固定組合", "用戶原本嘅固定過關組合，每個賽馬日照買"),
     ("adaptive", "按場自動", "每場自己揀最抵嘅玩法，唔抵就唔買"),
     ("win_value", "獨贏價值", "搵賠率被低估嘅獨贏"),
@@ -166,6 +173,7 @@ _META = [
     ("pla_parlay", "位置過關", "揀全日最穩陣嘅 3 場做 3x4 過關"),
     ("favourite", "跟大熱（對照組）", "每場買大熱獨贏 + 位置"),
     ("monkey", "隨機猴子（對照組）", "每場隨機揀一隻買位置"),
+    ("daily_picks", "每日精選", "照今日精選落注，冇精選就唔買"),
 ]
 
 
@@ -403,18 +411,18 @@ def _place_only(bid, c, ctxs, bank):
         ok = ok[:c["max_per_race"]]
         if not ok:
             ev, h, o, s = rows[0]
-            why = (f"最高期望值只得{ev:.2f}（{h}號 上名率{_pc(x.pp[h])} × 位置賠率{_od(o)}{SRC_TAG[s]}），"
+            why = (f"最高期望值只得{ev:.2f}（{h}號 入三甲機率{_pc(x.pp[h])} × 位置賠率{_od(o)}{SRC_TAG[s]}），"
                    f"唔夠門檻{c['min_ev']:.2f} → 唔買")
             if s == "model":
-                why = (f"未開售冇市場賠率：{h}號 上名率{_pc(x.pp[h])}，模型推算位置賠率{_od(o)}{SRC_TAG[s]}，"
+                why = (f"未開售冇市場賠率：{h}號 入三甲機率{_pc(x.pp[h])}，模型推算位置賠率{_od(o)}{SRC_TAG[s]}，"
                        f"期望值{ev:.2f} 唔可以當真（門檻{c['min_ev']:.2f}要真賠率）→ 唔買")
             elif ev >= c["min_ev"]:
-                why = (f"{h}號 期望值{ev:.2f}{SRC_TAG[s]}夠高，但上名率只得{_pc(x.pp[h])}"
+                why = (f"{h}號 期望值{ev:.2f}{SRC_TAG[s]}夠高，但入三甲機率只得{_pc(x.pp[h])}"
                        f"（要≥{_pc(c['min_p'])}）→ 唔買")
             out.append(_dec(bid, x.rn, "skip", S, [], 0.0, why))
             continue
         sels = [r[1] for r in ok]
-        parts = [f"{h}號 上名率{_pc(x.pp[h])}，位置賠率{_od(o)}{SRC_TAG[s]} → 期望值{ev:.2f} ≥ 門檻{c['min_ev']:.2f}"
+        parts = [f"{h}號 入三甲機率{_pc(x.pp[h])}，位置賠率{_od(o)}{SRC_TAG[s]} → 期望值{ev:.2f} ≥ 門檻{c['min_ev']:.2f}"
                  for ev, h, o, s in ok]
         t = _single_ticket(bid, x.rn, "PLA", {"selections": sels}, "PLA")
         reason = "；".join(parts) + f"，買位置 {_money(t['total_stake'])}"
@@ -517,7 +525,7 @@ def _qpl_box(bid, c, ctxs, bank):
         hit = x.probs.hit_prob("QPL", combos)
         er, src = x.combos_value("QPL", combos)
         roi = er - 1
-        head = f"頭三選 {_hs(top)}（上名率 {'/'.join(_pc(x.pp[h]) for h in top)}），位置Q 命中機率{_pc(hit)}"
+        head = f"頭三選 {_hs(top)}（入三甲機率 {'/'.join(_pc(x.pp[h]) for h in top)}），位置Q 命中機率{_pc(hit)}"
         evt = f"預期回報{roi:+.0%}{SRC_TAG[src]}"
         if hit < c["min_hit"] - 1e-12:
             out.append(_dec(bid, x.rn, "skip", S, [], 0.0,
@@ -630,7 +638,7 @@ def _monkey(bid, c, ctxs, bank):
         h, seed = monkey_pick(x)
         t = _single_ticket(bid, x.rn, "PLA", {"selections": [h]}, "PLA")
         reason = (f"隨機（種子 {x.race_id or x.rn}）喺 {x.n} 匹入面揀中 {h}號"
-                  f"（模型上名率{_pc(x.pp[h])}）→ 位置 {_money(t['total_stake'])}")
+                  f"（模型入三甲機率{_pc(x.pp[h])}）→ 位置 {_money(t['total_stake'])}")
         out.append(_bet_or_broke(bank, bid, x.rn, "PLA 隨機", [h], t, reason))
     return out
 
@@ -649,7 +657,7 @@ def _leg_rows(bid, ctxs, tickets_dec, label):
                     sel = leg["selections"]
                     sels[name] = list(sel)
                     conf = "/".join(_pc(x.pp[h]) for h in sel)
-                    parts.append(f"{name} 揀 {_hs(sel)}（上名率{conf}）"
+                    parts.append(f"{name} 揀 {_hs(sel)}（入三甲機率{conf}）"
                                  + ("" if d["action"] == "bet" else "，但呢條過關冇買（" +
                                     ("資金不足" if "資金不足" in d["reason"] else "唔合格") + "）"))
                     placed |= d["action"] == "bet"
@@ -659,7 +667,7 @@ def _leg_rows(bid, ctxs, tickets_dec, label):
                             sels, 0.0,
                             f"第{x.rn}場係過關腳：" + "；".join(parts) + "（注碼計喺過關飛，見「過關決定」）"))
         else:
-            top = f"首選 {h}號 上名率{_pc(x.pp[h])}" if h else f"{x.n} 匹出賽"
+            top = f"首選 {h}號 入三甲機率{_pc(x.pp[h])}" if h else f"{x.n} 匹出賽"
             why = (f"第{x.rn}場唔係過關腳（{top}，唔係入選嘅最有信心場次）" if tickets_dec else
                    f"第{x.rn}場：今日冇過關飛（原因見「過關決定」；{top}）")
             out.append(_dec(bid, x.rn, "skip", label, [], 0.0, why))
@@ -724,7 +732,7 @@ def _pla_parlay(bid, c, ctxs, bank):
                                        and r["ev"] >= c["min_ev"] - 1e-12))]
     out = []
     decs_t = []
-    rule = f"上名率≥{_pc(c['min_p'])}" + ("" if c["min_ev"] is None else f"、期望值≥{c['min_ev']:.2f}")
+    rule = f"入三甲機率≥{_pc(c['min_p'])}" + ("" if c["min_ev"] is None else f"、期望值≥{c['min_ev']:.2f}")
     if len(ok) < n:
         best = "、".join(f"第{r['x'].rn}場 {r['h']}號({_pc(r['p'])})" for r in ranked[:n])
         out.append(_dec(bid, 0, "skip", S, [], 0.0,
@@ -737,7 +745,7 @@ def _pla_parlay(bid, c, ctxs, bank):
         evs = [r["ev"] if r["ev"] is not None else r["p"] for r in pick]
         e = sum(float(np.prod([evs[i] for i in s])) for s in subs) / t["n_combos"]
         src = _worst(r["s"] for r in pick)
-        desc = "、".join(f"第{r['x'].rn}場 {r['h']}號(上名率{_pc(r['p'])}，位置賠率{_od(r['o'])})" for r in pick)
+        desc = "、".join(f"第{r['x'].rn}場 {r['h']}號(入三甲機率{_pc(r['p'])}，位置賠率{_od(r['o'])})" for r in pick)
         reason = (f"最有信心 {n} 場：{desc}，全部 {rule} → 位置 {spec} 過關 {t['n_combos']} 注 "
                   f"{_money(t['total_stake'])}，每注期望值{e:.2f}{SRC_TAG[src]}")
         sel = [{"race_no": l["race_no"], "selections": l["selections"]} for l in legs]
@@ -747,23 +755,75 @@ def _pla_parlay(bid, c, ctxs, bank):
     return out + _leg_rows(bid, ctxs, decs_t, "過關腳")
 
 
+# ---- daily_picks: buys exactly the 今日精選 items graded 精選 ------------------------------
+def _pick_selection(it):
+    out = []
+    for l in it.get("legs_raw") or []:
+        d = {"race_no": int(l["race_no"])}
+        for k in ("bankers", "selections", "positions"):
+            if l.get(k):
+                d[k] = l[k]
+        out.append(d)
+    return out[0] if it["kind"] == "single" and out else out
+
+
+def _daily_picks(bid, c, ctxs, bank, pk):
+    out = []
+    items = [it for it in (pk or {}).get("items") or [] if it.get("grade") == "精選"]
+    notes = (pk or {}).get("race_notes") or {}
+    bet_races = set()
+    multi = []
+    for it in items:
+        rn = int(it["race_no"]) if it["kind"] == "single" else 0
+        t = dict(it["ticket"])
+        t["legs"] = [dict(l) for l in t["legs"]]
+        structure = f"#{it['rank']} {it['pool_zh']} {it['structure_zh']}"
+        if rn:
+            bet_races.add(rn)
+        else:
+            multi.append(it)
+        out.append(_bet_or_broke(bank, bid, rn, structure, _pick_selection(it), t, it["reason"]))
+    for x in ctxs:
+        if x.rn in bet_races:
+            continue
+        why = notes.get(str(x.rn)) or notes.get(x.rn)
+        if not items:
+            head = f"今日冇精選（{len(ctxs)} 場都冇玩法過門檻）"
+        else:
+            head = f"第{x.rn}場冇精選"
+        out.append(_dec(bid, x.rn, "skip", "精選", [], 0.0,
+                        head + ("：" + why if why else f"（{x.n} 匹出賽，冇可以計價嘅玩法）") + " → 唔買"))
+    if not multi:
+        out.append(_dec(bid, 0, "skip", "跨場／過關精選", [], 0.0,
+                        f"今日冇跨場／過關精選（孖寶、三寶、過關都未過門檻；共 {len(items)} 項單場精選）→ 唔買"))
+    return out
+
+
 _KINDS = {"place_only": _place_only, "fixed_combo": _fixed_combo, "adaptive": _adaptive,
           "win_value": _win_value, "qpl_box": _qpl_box, "qin_banker": _qin_banker,
           "tri_banker": _tri_banker, "pla_parlay": _pla_parlay, "favourite": _favourite,
           "monkey": _monkey}
 
 
-def decide(bot, pred_df, odds, bankroll, cache=None) -> list[dict]:
+def decide(bot, pred_df, odds, bankroll, cache=None, picks=None) -> list[dict]:
     """Decisions of one robot for one meeting (see module docstring).
 
     ``bot``: a BOTS entry or its id.  ``bankroll``: the robot's balance before the
     meeting; tickets are taken in order and any ticket the remaining balance cannot
-    cover becomes a 「資金不足」 skip.  ``cache``: optional RaceCtx memo (backtest)."""
+    cover becomes a 「資金不足」 skip.  ``cache``: optional RaceCtx memo (backtest).
+    ``picks``: the meeting's 今日精選 dict (hkjc.picks.make_picks) for the daily_picks robot;
+    computed from pred_df / odds when None."""
     bot = get_bot(bot)
     cfg = {**_CFG.get(bot["id"], {}), **(bot.get("config") or {})}
     ctxs = prepare(pred_df, odds, cache)
     bank = _Bank(bankroll)
-    fn = _KINDS[cfg.get("kind", bot["id"])]
+    kind = cfg.get("kind", bot["id"])
+    if kind == "daily_picks":
+        if picks is None:
+            from . import picks as _picks
+            picks = _picks.make_picks(pred_df, odds)
+        return _daily_picks(bot["id"], cfg, ctxs, bank, picks)
+    fn = _KINDS[kind]
     return fn(bot["id"], cfg, ctxs, bank)
 
 
@@ -774,7 +834,7 @@ def _error_rows(bid, pred_df, exc) -> list[dict]:
     except Exception:
         rns = []
     kind = _CFG.get(bid, {}).get("kind", bid)
-    if kind in ("fixed_combo", "pla_parlay"):
+    if kind in ("fixed_combo", "pla_parlay", "daily_picks"):
         rns = [0] + rns
     why = f"系統錯誤（{type(exc).__name__}），今日呢隻機械人唔落注；共 {len([r for r in rns if r])} 場都唔買"
     return [_dec(bid, rn, "skip", "-", [], 0.0, why) for rn in rns]
@@ -787,7 +847,7 @@ def tickets_of(decisions) -> list[dict]:
 # =====================================================================================
 # live: run every robot for a meeting
 # =====================================================================================
-def run_bots(conn, run_id, date, venue, pred_df, odds, bots=None) -> list[dict]:
+def run_bots(conn, run_id, date, venue, pred_df, odds, bots=None, picks=None) -> list[dict]:
     """Every robot decides for meeting (date, venue) and its tickets are paper-placed.
 
     Per robot: void + refund its still-open tickets of this meeting (any run - so a
@@ -808,7 +868,7 @@ def run_bots(conn, run_id, date, venue, pred_df, odds, bots=None) -> list[dict]:
         paper.void_open(conn, date, venue, bid, None, f"作廢退回 (被 {run_id} 重新決定)")
         bal = paper.bankroll(conn, bid)
         try:
-            decs = decide(bot, pred_df, odds, bal)
+            decs = decide(bot, pred_df, odds, bal, picks=picks)
             tk = [d for d in decs if d["ticket"]]
             ids = paper.place_tickets(conn, run_id, date, venue, [d["ticket"] for d in tk],
                                       starting_bankroll=bot.get("start_bankroll", START_BANKROLL),
@@ -1000,7 +1060,8 @@ def backtest_bots(conn, source="wf-combined-v1", tune_params=True, write=True, p
     F_oos = [frames[i] for i in oos_idx]
     ctx_cache, settle_cache = {}, {}
     out_rows, js = [], {}
-    for bot in (bots or BOTS):
+    # daily_picks has its own walk-forward backtest (hkjc.picks.backtest_picks, data/picks_backtest.json)
+    for bot in (bots or [b for b in BOTS if b["id"] not in BACKTEST_SEPARATE]):
         bot = get_bot(bot)
         params, table = (tune(bot, M_is, F_is, ctx_cache, settle_cache) if tune_params else ({}, []))
         cfg = {**bot["config"], **params}

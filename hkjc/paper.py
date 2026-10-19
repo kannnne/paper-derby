@@ -138,7 +138,9 @@ def place_tickets(conn, run_id, date, venue, tickets, starting_bankroll: float =
             pool = t.get("pool") or (t["legs"][0].get("pool") if t["legs"] else None)
             spec = _spec_of(t["strategy"], t)
             legs = [{**leg, "pool": leg.get("pool", pool)} for leg in t["legs"]]
-            if spec:
+            if pool in bets.MULTI_RACE_POOLS:
+                n = bets.multi_race_units(pool, legs)
+            elif spec:
                 n = bets.ticket_units(pool, legs, spec)
             else:
                 leg = legs[0]
@@ -187,6 +189,27 @@ def _race_data(conn, race_id):
     return "missing", good, scr
 
 
+def _favourite(conn, race_id):
+    """Lowest final win odds among the starters of a race (the multi-race pools' substitute)."""
+    r = conn.execute("SELECT horse_no FROM runners WHERE race_id=? AND COALESCE(scratched,0)=0 "
+                     "AND win_odds IS NOT NULL AND win_odds > 0 ORDER BY win_odds, horse_no LIMIT 1",
+                     (race_id,)).fetchone()
+    return None if r is None else int(r[0])
+
+
+def _settle_multi_race(conn, t, pool, legs, scr, void_legs, unit):
+    """DBL / TBL ticket: dividend rows live on the LAST leg's race_id (SPEC.md).  Withdrawn
+    selections take the leg favourite as substitute (bets.settle_multi_race); a void leg or a
+    pool without dividend rows refunds every unit."""
+    last = int(legs[-1]["race_no"])
+    rows = [] if void_legs else conn.execute(
+        "SELECT pool, combination, dividend FROM dividends WHERE race_id=? AND pool=?",
+        (_race_id(t["date"], t["venue"], last), pool)).fetchall()
+    subs = {int(l["race_no"]): _favourite(conn, _race_id(t["date"], t["venue"], l["race_no"])) for l in legs}
+    return bets.settle_multi_race(pool, legs, [tuple(r) for r in rows], unit_stake=unit,
+                                  scratched_by_leg=scr, substitutes=subs)
+
+
 def settle(conn, date) -> int:
     """Settle all open tickets dated ``date`` (legacy and every robot; each payout is
     credited to the ticket's own ledger).  Returns the number settled.
@@ -222,7 +245,9 @@ def settle(conn, date) -> int:
         if pending:
             continue
         unit = float(t["unit_stake"])
-        if spec:
+        if pool in bets.MULTI_RACE_POOLS:
+            res = _settle_multi_race(conn, t, pool, legs, scr, void_legs, unit)
+        elif spec:
             res = bets.settle_allup(pool, legs, spec, divs, unit_stake=unit, scratched_by_race=scr)
         else:
             leg = legs[0]

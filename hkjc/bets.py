@@ -450,3 +450,111 @@ def settle_allup(pool: str, legs: list, spec: str, dividends_by_race: Mapping,
                       "outcomes": {c: o[0] for c, o in li["outcomes"].items()}}
                      for li in leg_info],
             "detail": detail}
+
+
+# ----------------------------------------------------------------- multi-race pools (DBL / TBL)
+# HKJC 孖寶 (Double) / 三寶 (Treble): pick the WINNER of every leg except the last, and a horse
+# that finishes 1st OR 2nd in the last leg - the results pages publish one dividend row for
+# "winners / last-leg winner" and one for "winners / last-leg runner-up" (verified on every
+# 2023-26 meeting in data/hkjc.db: 2 DBL / TBL rows per pool, e.g. 2026-10-19 R1-2 "6/7"
+# $3,025 and "6/2" $101).  Dividends are stored on the LAST leg's race_id, combinations
+# '/'-separated in leg order; an 'F' part means "any horse" (e.g. a void leg).
+# Withdrawals: HKJC multi-leg pools use a SUBSTITUTE - a withdrawn selection is replaced by
+# the leg's favourite (the starter with the largest WIN-pool investment, i.e. the lowest final
+# win odds) [R3 multi-race substitute rule; ASSUMED here from the HKJC betting guide, not
+# re-verified].  With no substitute known the unit is refunded.
+MULTI_RACE_POOLS = frozenset({"DBL", "TBL"})
+MULTI_RACE_LEGS = {"DBL": 2, "TBL": 3}
+
+
+def _leg_horses(leg) -> list[int]:
+    if isinstance(leg, Mapping):
+        hs = list(leg.get("bankers") or []) + list(leg.get("selections") or [])
+    else:
+        hs = list(leg)
+    return _uniq(int(h) for h in hs)
+
+
+def multi_race_combos(pool: str, legs: list) -> list[str]:
+    """All unit combinations of a DBL / TBL bet: one horse per leg ('a/b' or 'a/b/c')."""
+    p = str(pool).upper()
+    if p not in MULTI_RACE_POOLS:
+        raise ValueError(f"not a multi-race pool: {pool!r}")
+    if len(legs) != MULTI_RACE_LEGS[p]:
+        raise ValueError(f"{p} needs {MULTI_RACE_LEGS[p]} legs, got {len(legs)}")
+    return ["/".join(str(h) for h in c) for c in _product(*(_leg_horses(l) for l in legs))]
+
+
+def multi_race_units(pool: str, legs: list) -> int:
+    return len(multi_race_combos(pool, legs))
+
+
+def _mr_rows(dividend_rows, pool):
+    out = []
+    for r in dividend_rows or []:
+        if isinstance(r, Mapping):
+            p, c, d = r.get("pool"), r.get("combination"), r.get("dividend")
+        else:
+            p, c, d = _row_get(r, "pool", 0), _row_get(r, "combination", 1), _row_get(r, "dividend", 2)
+        if str(p).upper() == pool:
+            out.append((str(c), d))
+    return out
+
+
+def settle_multi_race(pool: str, legs: list, dividend_rows, unit_stake: float = 10.0,
+                      scratched_by_leg=None, substitutes=None) -> dict:
+    """Settle a DBL / TBL bet.
+
+    legs: [{race_no, selections}] in leg order.  dividend_rows: the pool's rows of the last
+    leg race ((pool, combination, dividend) tuples / dicts; other pools are ignored).
+    scratched_by_leg / substitutes: {race_no: set of withdrawn horses} / {race_no: favourite}.
+    A unit wins every published row it matches ('F' matches any horse).  No rows for the pool,
+    or a refund row -> every unit refunded (pool not offered / void)."""
+    p = str(pool).upper()
+    combos = multi_race_combos(p, legs)
+    rnos = [l.get("race_no") if isinstance(l, Mapping) else None for l in legs]
+    scr = scratched_by_leg or {}
+    subs = substitutes or {}
+    rows = _mr_rows(dividend_rows, p)
+    refund_all = not rows or any(c.strip().upper() in _REFUND_MARKERS for c, _d in rows)
+    parsed = []
+    for c, d in rows:
+        parsed.append(([x.strip() for x in c.split("/")], d))
+    detail, payout, n_win, n_ref = [], 0.0, 0, 0
+    for c in combos:
+        hs = [int(x) for x in c.split("/")]
+        eff, refund = [], refund_all
+        for rn, h in zip(rnos, hs):
+            s = {int(x) for x in (scr.get(rn) or scr.get(str(rn)) or ())}
+            if h in s:
+                sub = subs.get(rn, subs.get(str(rn)))
+                if sub is None:
+                    refund = True
+                    eff.append(h)
+                else:
+                    eff.append(int(sub))
+            else:
+                eff.append(h)
+        if refund:
+            status, ret, div = "refund", unit_stake, None
+        else:
+            div = 0.0
+            hit = False
+            for parts, d in parsed:
+                if len(parts) != len(eff):
+                    continue
+                if all(pp.upper() == "F" or (pp.isdigit() and int(pp) == h) for pp, h in zip(parts, eff)):
+                    hit = True
+                    div += 10.0 if d is None else float(d)
+            status = "win" if hit else "lose"
+            ret = unit_stake * div / 10.0 if hit else 0.0
+            div = div if hit else None
+        payout += ret
+        n_win += status == "win"
+        n_ref += status == "refund"
+        detail.append({"combination": c, "effective": "/".join(map(str, eff)), "status": status,
+                       "dividend": div, "return": round(ret, 6)})
+    stake = unit_stake * len(combos)
+    return {"payout": round(payout, 6), "stake": stake, "profit": round(payout - stake, 6),
+            "n_units": len(combos), "n_winning_units": n_win, "n_refunded_units": n_ref,
+            "detail": detail}

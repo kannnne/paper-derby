@@ -48,7 +48,7 @@ def has_number(s):
 def test_bot_table():
     ids = [b["id"] for b in bots.BOTS]
     assert ids == ["place_only", "fixed_combo", "adaptive", "win_value", "qpl_box", "qin_banker",
-                   "tri_banker", "pla_parlay", "favourite", "monkey"]
+                   "tri_banker", "pla_parlay", "favourite", "monkey", "daily_picks"]
     for b in bots.BOTS:
         assert b["name_zh"] and b["style_zh"] and "\n" not in b["style_zh"]
         assert len(b["description_zh"]) > 40
@@ -71,7 +71,7 @@ def test_every_race_gets_a_reasoned_decision(bid):
             assert d["stake"] == t["total_stake"] == t["unit_stake"] * t["n_combos"]
             assert t["reason"] == d["reason"] and t["bot_id"] == bid
     # meeting-level robots: race_no 0 rows
-    if bid in ("fixed_combo", "pla_parlay"):
+    if bid in ("fixed_combo", "pla_parlay", "daily_picks"):
         assert any(d["race_no"] == 0 for d in decs)
     else:
         assert not any(d["race_no"] == 0 for d in decs)
@@ -89,7 +89,7 @@ def test_place_only_reason_numbers_live_odds():
                 "WIN": {str(h): 3.0 if h == 6 else 15.0 for h in range(1, 13)}}}
     d, = bots.decide("place_only", pred, odds, 10_000)
     assert d["action"] == "bet" and d["selections"] == [6] and d["stake"] == 10
-    for s in ("6號", "上名率68%", "位置賠率1.9", "期望值1.29", "門檻0.90", "$10"):
+    for s in ("6號", "入三甲機率68%", "位置賠率1.9", "期望值1.29", "門檻0.90", "$10"):
         assert s in d["reason"], (s, d["reason"])
     assert "估計" not in d["reason"]                           # live odds
     t = d["ticket"]
@@ -214,7 +214,7 @@ def test_fixed_combo_and_parlay_structure():
     d0 = pp[0]
     assert d0["race_no"] == 0 and d0["action"] == "bet" and d0["stake"] == 40
     assert [l["race_no"] for l in d0["ticket"]["legs"]] == [3, 4, 5] and d0["ticket"]["spec"] == "3x4"
-    assert "上名率75%" in d0["reason"] and "4 注 $40" in d0["reason"]
+    assert "入三甲機率75%" in d0["reason"] and "4 注 $40" in d0["reason"]
     assert [d["action"] for d in pp[1:]] == ["skip", "skip", "bet", "bet", "bet"]
     weak = pd.concat([race(rn, p, p_place=[0.5] + [0.2] * 7) for rn in range(1, 6)])
     pp = bots.decide("pla_parlay", weak, None, 10_000)
@@ -338,12 +338,23 @@ def test_run_bots_settle_and_ledgers_real_meeting(cdb):
     md = bt.load_data(cdb, "wf-combined-v1", DATE, DATE)
     frames = bots._meeting_frames(md)
     for b in bots.BOTS:
+        if b["id"] in bots.BACKTEST_SEPARATE:
+            continue
         rows, kept = bots.simulate(b, md, frames, keep_decisions=True)
         mine = [d for d in decs if d["bot_id"] == b["id"]]
         assert bots._strip(kept[(DATE, VENUE)]) == bots._strip(mine), b["id"]
         pays = cdb.execute("SELECT COALESCE(SUM(payout),0) FROM paper_tickets WHERE bot_id=?",
                            (b["id"],)).fetchone()[0]
         assert rows[0]["returns"] == pytest.approx(pays, abs=0.01 * max(1, rows[0]["n_bets"]))
+    # daily_picks: live paper settlement == the picks backtest settlement of the same items
+    from hkjc import picks
+    pk = picks.make_picks(pred, None)
+    pmd, mr = picks.load_backtest_data(cdb, "wf-combined-v1", DATE, DATE)
+    dat = picks.BTData(pmd[0], mr)
+    sel = [it for it in pk["items"] if it["grade"] == "精選"]
+    want = sum(picks.settle_item(it, dat)["payout"] for it in sel)
+    got = cdb.execute("SELECT COALESCE(SUM(payout),0), COUNT(*) FROM paper_tickets WHERE bot_id='daily_picks'").fetchone()
+    assert got[1] == len(sel) and got[0] == pytest.approx(want, abs=0.01)
     # summaries
     summ = {s["bot_id"]: s for s in paper.bot_summary(cdb)}
     assert list(summ) == [b["id"] for b in bots.BOTS]

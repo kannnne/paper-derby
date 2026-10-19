@@ -729,7 +729,7 @@ def validation_report(conn, run_ids: dict, out_path=MODEL_DIR / "validation.md",
         for k, nm in names:
             L.append(f"| {nm} | {_fmt(ev['model'][k])} | {_fmt(ev['market'][k])} |")
         L.append("")
-        L.append("| 揀法（每場 1 隻，平注 $10） | 勝出率 | 上名率 | 獨贏 ROI | 位置 ROI |")
+        L.append("| 揀法（每場 1 隻，平注 $10） | 勝出率 | 入三甲率 | 獨贏 ROI | 位置 ROI |")
         L.append("|---|---|---|---|---|")
         for tag, nm in (("model_top", "模型首選"), ("market_fav", "市場大熱")):
             r = ev[tag]
@@ -737,7 +737,7 @@ def validation_report(conn, run_ids: dict, out_path=MODEL_DIR / "validation.md",
         L.append("")
         L.append("**校準（按 p_win 十分位）**")
         L.append("")
-        L.append("| 十分位 | 匹次 | 平均 p_win | 實際勝出率 | 平均 p_place | 實際上名率 |")
+        L.append("| 十分位 | 匹次 | 平均 p_win | 實際勝出率 | 平均 p_place | 實際入三甲率 |")
         L.append("|---|---|---|---|---|---|")
         for r in ev["calibration"].itertuples():
             L.append(f"| {int(r.dec) + 1} | {r.n} | {_pct(r.p_mean)} | {_pct(r.win_rate)} | {_pct(r.pp_mean)} | {_pct(r.place_rate)} |")

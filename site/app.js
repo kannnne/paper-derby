@@ -279,15 +279,15 @@
     loadHistory().then(drawCurves);
   }
 
-  // ------------------------------------------------------------------ 今日精選 (daily picks = the 固定組合 robot's tickets)
-  // Meeting whose picks the home page shows: the upcoming meeting once its robots have decided,
+  // ------------------------------------------------------------------ 今日精選 (daily picks, from the analysis engine)
+  // Meeting whose picks the home page shows: the upcoming meeting once its picks are out,
   // otherwise the latest meeting with picks (null = none yet).
   function picksMeeting(idx) {
     var ms = sortedMeetings(idx);
     var nm = idx.next_meeting;
     if (!ms.some(function (m) { return typeof m.has_picks === "boolean"; })) return null;   // older export
     if (nm) {
-      var n = ms.filter(function (m) { return m.date === nm.date && m.venue === nm.venue && m.has_picks && m.has_decisions; })[0];
+      var n = ms.filter(function (m) { return m.date === nm.date && m.venue === nm.venue && m.has_picks; })[0];
       if (n) return n;
     }
     return ms.filter(function (m) { return m.has_picks && (!nm || m.date <= nm.date); })[0] || null;
@@ -329,9 +329,196 @@
     if (!ok(payout)) return '<span class="pk-meta">' + (extra || "") + '<span class="muted">等賽果</span></span>';
     return '<span class="pk-meta">' + (extra || "") + "派彩 <b class=num>" + money(payout, 2) + "</b> " + plSpan(profit) + "</span>";
   }
+  // Dispatcher: 第三版 analysis-driven picks ({items:[...]}) vs the old fixed-set shape (pla_6x63 / qpl_2x3).
+  function isOldPicks(p) { return !Array.isArray(p.items) && (p.pla_6x63 !== undefined || p.qpl_2x3 !== undefined); }
   function picksCard(m, home) {
     var p = m.picks;
-    if (!p) return "";
+    if (!p || typeof p !== "object") return "";
+    return isOldPicks(p) ? picksCardV1(m, home) : picksCardV2(m, home);
+  }
+
+  // ---- 第三版：any pool / structure, single race, multi-race (孖寶/三寶) or all-up (過關)
+  var POOL_FAM = { WIN: "win", PLA: "pla", QIN: "qin", QPL: "qin", FCT: "fct", TRI: "tri", TCE: "tri", FF: "f4", QTT: "f4", DBL: "multi", TBL: "multi" };
+  var EXTRA_POOL_ZH = { DBL: "孖寶", TBL: "三寶" };
+  function poolFam(it) {
+    if (it.kind === "allup" || /過關/.test(String(it.pool_zh || ""))) return "allup";
+    if (it.kind === "multi_race") return "multi";
+    var code = String(it.pool || "").toUpperCase().split(/[^A-Z0-9]/)[0];
+    return POOL_FAM[code] || "other";
+  }
+  function poolName(it) {
+    if (it.pool_zh) return String(it.pool_zh);
+    var code = String(it.pool || "").toUpperCase();
+    return POOL_ZH[code] || EXTRA_POOL_ZH[code] || code || "玩法";
+  }
+  function probTxt(v) {
+    if (!ok(v)) return DASH;
+    if (v > 0 && v < 0.001) return "<0.1%";
+    return (v * 100).toFixed(v < 0.1 ? 1 : 0) + "%";
+  }
+  function roiSpan(v) {
+    if (!ok(v)) return '<b class="pk-roi muted">' + DASH + "</b>";
+    var cls = v > 0.004 ? "up" : v < -0.004 ? "down" : "flat";
+    return '<b class="pk-roi ' + cls + ' num">' + pct(v, 1, true) + "</b>";
+  }
+  function horseLookup(m) {
+    var map = {};
+    (m.races || []).forEach(function (r) {
+      (r.horses || []).forEach(function (h) { map[r.race_no + ":" + h.horse_no] = h; });
+    });
+    return map;
+  }
+  function normHorse(x, rn, look, known) {   // number | string | {horse_no, horse_name, score}
+    if (!ok(x)) return null;
+    var o = typeof x === "object" ? x : { horse_no: x };
+    if (!ok(o.horse_no)) return null;
+    var k = known && known[o.horse_no], h = look[rn + ":" + o.horse_no] || {};
+    return { horse_no: o.horse_no, horse_name: o.horse_name || (k && k.horse_name) || h.horse_name || "", score: ok(o.score) ? o.score : k && ok(k.score) ? k.score : h.score };
+  }
+  function pkHorse(h) {
+    return '<span class="pk-hs" title="' + esc(h.horse_no + "號 " + (h.horse_name || "") + (ok(h.score) ? "（評分 " + Math.round(h.score) + "）" : "")) + '">' +
+      cloth(h.horse_no, "sm") + (h.horse_name ? "<small>" + esc(h.horse_name) + "</small>" : "") + "</span>";
+  }
+  function pkGroup(lbl, cls, hs) {
+    if (!hs.length) return "";
+    return '<span class="pk-grp' + (cls ? " " + cls : "") + '">' + (lbl ? '<span class="pk-gl">' + esc(lbl) + "</span>" : "") + hs.map(pkHorse).join("") + "</span>";
+  }
+  function pkLeg(l, it, look, multi) {
+    var rn = l.race_no;
+    var known = {};
+    (l.bankers || []).concat(l.selections || []).forEach(function (x) { if (x && typeof x === "object" && ok(x.horse_no)) known[x.horse_no] = x; });
+    function list(a) { return (a || []).map(function (x) { return normHorse(x, rn, look, known); }).filter(Boolean); }
+    var body = "";
+    if (Array.isArray(l.positions) && l.positions.length) {   // 位置/次序：第1、第2、第3、第4 groups
+      body = l.positions.map(function (grp, i) { return pkGroup("第" + (i + 1), "pos", list(Array.isArray(grp) ? grp : [grp])); }).join("");
+    } else {
+      var bk = list(l.bankers), sel = list(l.selections);
+      body = pkGroup(bk.length ? "膽" : "", bk.length ? "banker" : "", bk) + pkGroup(bk.length ? "腳" : "", bk.length ? "leg" : "", sel);
+    }
+    if (!body) body = '<span class="muted small">未有選擇</span>';
+    var head = "";
+    if (multi) {
+      var lp = l.pool_zh && l.pool_zh !== it.pool_zh ? ' <span class="pk-lg-pool">' + esc(l.pool_zh) + "</span>" : "";
+      head = '<span class="pk-lg-r"><b>第' + esc(ok(rn) ? rn : "?") + "場</b>" + lp + mark(l.hit, "呢關中", "呢關唔中") + "</span>";
+    }
+    return '<div class="pk-lg' + (multi ? " multi" : "") + '">' + head + '<div class="pk-lg-b">' + body + "</div></div>";
+  }
+  function pkWhere(it, m) {
+    var legs = it.legs || [];
+    var races = (Array.isArray(it.races) && it.races.length ? it.races : legs.map(function (l) { return l.race_no; })).filter(ok);
+    var multi = it.kind === "multi_race" || it.kind === "allup" || races.length > 1;
+    var rank = ok(it.rank) ? '<span class="pk-rank" aria-label="第' + esc(it.rank) + '項">' + esc(it.rank) + "</span>" : "";
+    if (!multi) {
+      var rn = ok(it.race_no) ? it.race_no : races[0];
+      return rank + "<b>第" + esc(ok(rn) ? rn : "?") + "場</b><small>" + hhmm(it.post_time) + "</small>";
+    }
+    var lbl = it.kind === "allup" ? "過關" : poolName(it);
+    return rank + "<b>" + esc(lbl) + '</b><small class="pk-wr">' + races.map(function (r) { return "第" + esc(r) + "場"; }).join("<br>") + "</small>" +
+      (it.post_time ? "<small>" + hhmm(it.post_time) + "</small>" : "");
+  }
+  function pkReason(txt) {
+    txt = String(ok(txt) ? txt : "");
+    if (!txt) return "";
+    if (txt.length <= 70) return '<div class="pk-why">' + esc(txt) + "</div>";
+    return '<details class="pk-why more"><summary>' + esc(txt.slice(0, 56)) + '…<span class="more-lbl">展開</span></summary><div>' + esc(txt) + "</div></details>";
+  }
+  function pkItem(it, m, look) {
+    var fam = poolFam(it), ref = it.grade === "參考";
+    var legs = it.legs || [];
+    var multi = it.kind === "multi_race" || it.kind === "allup" || legs.length > 1;
+    var res = it.result && typeof it.result === "object" ? it.result : null;
+    var st = res ? (res.hit === true ? " is-hit" : res.hit === false ? " is-miss" : "") : "";
+    var src = it.odds_source ? '<span class="pk-src' + (it.odds_source === "即時賠率" ? " live" : "") + '">' + esc(it.odds_source) + "</span>" : "";
+    var html = '<li class="pk-it fam-' + fam + (ref ? " is-ref" : "") + st + '">';
+    html += '<div class="pk-wh">' + pkWhere(it, m) + "</div>";
+    html += '<div class="pk-mn"><div class="pk-it-h"><span class="pk-pool fam-' + fam + '">' + esc(poolName(it)) + "</span>" +
+      (it.structure_zh ? '<span class="pk-struct">' + esc(it.structure_zh) + "</span>" : "") + src +
+      (ref ? '<span class="pk-reftag">未過門檻，只供參考</span>' : "") + "</div>";
+    html += '<div class="pk-sel">' + (legs.length ? legs.map(function (l) { return pkLeg(l, it, look, multi); }).join("") : '<span class="muted small">未有選擇</span>') + "</div></div>";
+    var combos = ok(it.n_combos) ? it.n_combos + " 注 × " + money(it.unit_stake) : "";
+    html += '<div class="pk-mo"><div class="pk-stake">' + (combos ? "<small>" + combos + " =</small>" : "") + '<b class="num">' + money(it.stake) + "</b></div>" +
+      '<div class="pk-kv"><span>命中機率</span><b class="num">' + probTxt(it.hit_prob) + "</b></div>" +
+      '<div class="pk-kv"><span>預期回報</span>' + roiSpan(it.exp_roi) + "</div>" +
+      (ok(it.est_return_if_hit) && !res ? '<div class="pk-kv"><span>中咗約派</span><b class="num">' + money(it.est_return_if_hit, 0) + "</b></div>" : "");
+    if (res && ok(res.payout)) {
+      html += '<div class="pk-out">' + mark(res.hit, "中", "唔中") + "<span>派彩 <b class=num>" + money(res.payout) + "</b></span>" + plSpan(res.profit) + "</div>";
+    } else if (res && res.hit !== undefined && res.hit !== null) {
+      html += '<div class="pk-out">' + mark(res.hit, "中", "唔中") + "<span>" + (res.hit ? "中" : "唔中") + "</span></div>";
+    } else {
+      html += '<div class="pk-out muted small">' + (m.status === "results" ? "未結算" : "等賽果") + "</div>";
+    }
+    if (res && ok(res.detail) && typeof res.detail !== "object") html += '<div class="pk-detail small muted">' + esc(res.detail) + "</div>";
+    html += "</div>";
+    html += pkReason(it.reason) + "</li>";
+    return html;
+  }
+  function pkSortKey(it) {
+    var t = parseHK(it.post_time);
+    return [t ? t.getTime() : Infinity, ok(it.race_no) ? +it.race_no : 99, ok(it.rank) ? +it.rank : 99];
+  }
+  function pkSort(a, b) {
+    var x = pkSortKey(a), y = pkSortKey(b);
+    for (var i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+    return 0;
+  }
+  function pkBanker(p) {
+    var b = p.banker, v = Array.isArray(p.value) ? p.value : [];
+    if (!b && !v.length) return "";
+    var html = '<div class="pk-extra">';
+    if (b) html += '<div class="pk-x"><span class="pk-x-tag gold">全日最穩</span><div class="pk-x-row">' + cloth(b.horse_no, "sm") +
+      "<div><b>第" + esc(b.race_no) + "場 " + esc(b.horse_name) + "</b> " + finTxt(b.result) +
+      (ok(b.p_place) ? ' <span class="chip">入三甲機率 ' + pct(b.p_place, 0) + "</span>" : "") + '<div class="small muted">' + esc(b.reason) + "</div></div></div></div>";
+    if (v.length) html += '<div class="pk-x"><span class="pk-x-tag">值博之選</span>' + v.map(function (x) {
+      return '<div class="pk-x-row">' + cloth(x.horse_no, "sm") + "<div><b>第" + esc(x.race_no) + "場 " + esc(x.horse_name) + "</b>" +
+        (ok(x.ev) ? ' <span class="chip">EV ' + num(x.ev, 2) + "</span>" : "") + " " + finTxt(x.result) + '<div class="small muted">' + esc(x.reason) + "</div></div></div>";
+    }).join("") + "</div>";
+    return html + "</div>";
+  }
+  function picksCardV2(m, home) {
+    var p = m.picks;
+    var look = horseLookup(m);
+    var all = Array.isArray(p.items) ? p.items.filter(function (x) { return x && typeof x === "object"; }) : [];
+    var main = all.filter(function (x) { return x.grade !== "參考"; }).sort(pkSort);
+    var extraRefs = [p.reference_items, p.ref_items, p.reference, p.references].filter(Array.isArray)[0] || [];
+    var refs = all.filter(function (x) { return x.grade === "參考"; }).concat(extraRefs.filter(function (x) { return x && typeof x === "object"; }))
+      .map(function (x) { return x.grade ? x : Object.assign({ grade: "參考" }, x); }).sort(pkSort);
+    var nItems = ok(p.n_items) ? p.n_items : main.length;
+    var settled = ok(p.total_payout);
+    var dp = (state.index.bots || []).filter(function (b) { return b.id === "daily_picks"; })[0];
+    var html = '<article class="picks pk2" aria-label="今日精選 ' + esc(m.date) + '">';
+    html += '<header class="pk-head"><div class="pk-tag"><span>' + esc(p.title || "今日精選") + '</span></div><div class="pk-title"><b>' + meetingName(m) + "</b>" +
+      "<small>" + (dp ? "「" + esc(dp.name) + "」機械人照呢度落注追蹤成績 · " : "") + "按模型分析揀玩法，唔固定配搭</small></div>" +
+      '<div class="pk-total"><small>合共注碼</small><b class="num">' + money(ok(p.total_stake) ? p.total_stake : 0, 0) + "</b><small>（模擬）</small></div></header>";
+    html += '<div class="pk-sum"><span class="pk-count"><b class="num">' + esc(nItems) + "</b> 項精選</span>" +
+      (p.odds_note ? '<span class="pk-sum-i">' + esc(p.odds_note) + "</span>" : "") +
+      (p.generated_at ? '<span class="pk-sum-i muted">生成 ' + esc(String(p.generated_at).replace("T", " ").slice(0, 16)) + "</span>" : "") + "</div>";
+    if (p.method_note) html += reasonBlock(p.method_note, "pk-method small muted");
+    if (settled) {
+      html += '<div class="pk-final"><span>全日結算</span><span>派彩 <b class=num>' + money(p.total_payout, 2) + "</b></span>" + plSpan(p.total_profit) +
+        (main.length ? '<span class="small muted">中 ' + main.filter(function (x) { return x.result && x.result.hit === true; }).length + " / " + main.length + " 項</span>" : "") + "</div>";
+    }
+    if (main.length) {
+      html += '<ol class="pk-items">' + main.map(function (it) { return pkItem(it, m, look); }).join("") + "</ol>";
+    } else {
+      html += '<div class="pk-none"><b>今日冇玩法過門檻，冇精選</b>' + (p.note && !/冇精選/.test(String(p.note)) ? '<span class="small muted">' + esc(p.note) + "</span>" : "") + "</div>";
+      if (refs.length) {
+        html += '<details class="pk-refs"><summary>' + refs.length + ' 項參考（未過門檻，只供參考）<span class="more-lbl">展開</span></summary>' +
+          '<ol class="pk-items">' + refs.map(function (it) { return pkItem(it, m, look); }).join("") + "</ol></details>";
+      }
+    }
+    html += pkBanker(p);
+    html += '<footer class="pk-foot"><b>合共 ' + money(ok(p.total_stake) ? p.total_stake : 0, 0) + "（模擬）</b>" +
+      (settled ? "<span>派彩 " + money(p.total_payout, 2) + " · " + plSpan(p.total_profit) + "</span>" : "") +
+      '<span class="pk-disc">模擬研究，非投注建議</span>' +
+      (home ? '<a class="hs-link" href="#/meeting/' + meetingId(m) + '">完整賽馬日頁 →</a>' : "") + "</footer>";
+    html += '<p class="pk-note small muted">' + (main.length && p.note ? esc(p.note) + " " : "") +
+      "命中機率同預期回報由模型估計；預期回報 = 估計派彩 ÷ 注碼 − 1，正數先值博。膽 = 一定要跑入，腳 = 配搭。博彩要有節制。</p>";
+    return html + "</article>";
+  }
+
+  // ---- old fixed-set picks (位置 6x63 + 位置Q 2x3), kept for older meeting files
+  function picksCardV1(m, home) {
+    var p = m.picks;
     var p6 = p.pla_6x63, q = p.qpl_2x3 || [];
     var html = '<article class="picks" aria-label="今日精選 ' + esc(m.date) + '">';
     html += '<header class="pk-head"><div class="pk-tag"><span>' + esc(p.title || "今日精選") + '</span></div><div class="pk-title"><b>' + meetingName(m) + "</b>" +
@@ -349,7 +536,7 @@
         var st = l.result ? (l.result.placed ? " is-hit" : l.result.placed === false ? " is-miss" : "") : "";
         return '<div class="pk-leg' + st + '" role="listitem">' + pkRace(l.race_no, l.post_time) + cloth(l.horse_no) +
           '<div class="pk-name"><b>' + esc(l.horse_name || DASH) + "</b><small>" + esc(l.jockey || DASH) + "</small></div>" +
-          '<div class="pk-stats"><span><small>評分</small><b class="num">' + num(l.score) + "</b></span><span><small>上名率</small><b class=num>" + pct(l.p_place, 0) +
+          '<div class="pk-stats"><span><small>評分</small><b class="num">' + num(l.score) + "</b></span><span><small>入三甲機率</small><b class=num>" + pct(l.p_place, 0) +
           "</b></span><span><small>位置賠率</small>" + pkOdds(l.pla_odds) + "</span></div>" +
           '<div class="pk-res">' + finTxt(l.result) + "</div></div>";
       }).join("") + "</div>";
@@ -371,7 +558,7 @@
               '<div class="pk-q-hs">' + (l.horses || []).map(function (h) {
                 var st = h.placed === true ? " is-hit" : h.placed === false ? " is-miss" : "";
                 return '<div class="pk-qh' + st + '">' + cloth(h.horse_no, "sm") + '<span class="pk-qn">' + esc(h.horse_name || DASH) + "</span>" +
-                  '<span class="pk-qs num"><small>評分</small> ' + num(h.score) + '</span><span class="pk-qs num"><small>上名</small> ' + pct(h.p_place, 0) + "</span>" +
+                  '<span class="pk-qs num"><small>評分</small> ' + num(h.score) + '</span><span class="pk-qs num"><small>入三甲</small> ' + pct(h.p_place, 0) + "</span>" +
                   '<span class="pk-qf">' + (ok(h.finish_pos) ? mark(h.placed, "上名", "唔上名") + '<span class="pk-fin">第' + h.finish_pos + "名</span>" : "") + "</span></div>";
               }).join("") + "</div></div>";
           }).join("") + "</div>";
@@ -394,7 +581,7 @@
       (ok(p.total_payout) ? "<span>派彩 " + money(p.total_payout, 2) + " · " + plSpan(p.total_profit) + "</span>" : "") +
       '<span class="pk-disc">模擬研究，非投注建議</span>' +
       (home ? '<a class="hs-link" href="#/meeting/' + meetingId(m) + '">完整賽馬日頁 →</a>' : "") + "</footer>";
-    html += '<p class="pk-note small muted">' + esc(p.note || "") + "上名 = 跑入派位置彩嘅名次；EV = 上名率 × 位置賠率。博彩要有節制。</p>";
+    html += '<p class="pk-note small muted">' + esc(p.note || "") + "上名 = 跑入派位置彩嘅名次；入三甲機率 = 模型估計跑入頭三名嘅機率；EV = 入三甲機率 × 位置賠率。博彩要有節制。</p>";
     return html + "</article>";
   }
 
@@ -918,7 +1105,7 @@
       '<button type="button" data-sort="no" aria-pressed="' + (sort === "no") + '">按馬號</button>' +
       (hasScore ? '<button type="button" data-sort="score" aria-pressed="' + (sort === "score") + '">按評分</button>' : "") +
       (r.result ? '<button type="button" data-sort="finish" aria-pressed="' + (sort === "finish") + '">按名次</button>' : "") + "</div></div>";
-    html += '<div class="card-head" aria-hidden="true"><span>馬號</span><span>馬名 / 騎師 / 練馬師</span><span>評分</span><span>子評分</span><span>勝率 / 上名率</span><span>賠率</span></div>';
+    html += '<div class="card-head" aria-hidden="true"><span>馬號</span><span>馬名 / 騎師 / 練馬師</span><span>評分</span><span>子評分</span><span>勝率 / 入三甲機率</span><span>賠率</span></div>';
     html += '<div class="rows">' + horses.map(function (h) { return horseRow(h, r); }).join("") + "</div>";
     if (!hasScore) html += '<p class="small muted">呢場未有評分（模型未計／排位表剛公佈）。</p>';
     if (r.result && r.result.dividends) html += dividendsBlock(r.result.dividends);
@@ -956,7 +1143,7 @@
       '<div class="c-score"><div class="score-line"><span class="score-num">' + (ok(h.score) ? Math.round(h.score) : DASH) + '</span><div class="energy" role="img" aria-label="評分 ' +
       (ok(h.score) ? Math.round(h.score) : "未有") + ' / 100">' + energy + '</div></div><div class="score-cap">綜合評分 / 100</div></div>' +
       '<div class="c-subs"><div class="subs">' + subs + "</div></div>" +
-      '<div class="c-prob"><div>勝 <b>' + pct(h.p_win) + "</b></div><div>位 <b>" + pct(h.p_place) + "</b></div></div>") +
+      '<div class="c-prob"><div>勝 <b>' + pct(h.p_win) + "</b></div><div>入三甲 <b>" + pct(h.p_place) + "</b></div></div>") +
       '<div class="c-odds">' + ledBoard([[oddsLabel, winO], ["位置", plaO]]) + "</div>" +
       (reasons ? '<div class="c-reasons">' + reasons + "</div>" : "") + "</article>";
   }
@@ -1109,8 +1296,8 @@
     var idx = state.index;
     var labels = idx.sub_score_labels || {};
     var SUB_DESC = {
-      form: "近期名次、頭馬距離、速度同表現評級", jockey: "騎師近一年同近期勝出／上名率（按場地、跑道、路程）",
-      trainer: "練馬師近一年同近期勝出／上名率", combo: "呢位騎師同練馬師合作嘅往績", draw: "檔位喺呢個路程／跑道嘅歷史優劣",
+      form: "近期名次、頭馬距離、速度同表現評級", jockey: "騎師近一年同近期勝出／入三甲比率（按場地、跑道、路程）",
+      trainer: "練馬師近一年同近期勝出／入三甲比率", combo: "呢位騎師同練馬師合作嘅往績", draw: "檔位喺呢個路程／跑道嘅歷史優劣",
       fit: "匹馬喺呢個路程、場地、跑道嘅往績", "class": "班次升降、評分、負磅相對同場", market: "即時賠率反映嘅市場看法（未開售時留空）"
     };
     var html = '<div class="prose"><div class="section-head"><span class="kicker">GUIDE</span><h1>說明</h1></div>';
@@ -1120,7 +1307,7 @@
     }).join("") + '</div><p class="small">子評分係同場馬匹之間嘅相對分數（0 = 同場最差，100 = 同場最好），只用嚟解釋綜合評分從何而來。</p>';
     html += "<h2>方法</h2><ul>" +
       "<li>數據：公開嘅歷屆賽果、派彩、排位表，同賽前公開賠率（開售後）。</li>" +
-      "<li>模型：按每場比賽估計每匹馬嘅勝出率（勝）同上名率（位）；每場勝出率加埋等於 100%。</li>" +
+      "<li>模型：按每場比賽估計每匹馬嘅勝出率（勝）同入三甲機率（入三甲）；每場勝出率加埋等於 100%。</li>" +
       "<li>防止偷看未來：所有特徵只用該場之前嘅資料，模型每次只用預測日之前嘅數據訓練。</li>" +
       "<li>賽前約 2 小時攞賠率、計評分，10 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
       "<li>彩池抽水大約 17.5%–25%，過關每一關都要扣；長遠嚟講大部分玩法都係蝕錢。</li></ul>";

@@ -39,6 +39,14 @@ HEADERS = {
                    "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"),
 }
 DEFAULT_POOLS = ("WIN", "PLA", "QPL", "QIN")
+# Extra pools snapshotted once before the meeting for the 今日精選 engine (hkjc/picks.py).
+# Tested against the finished 2026-10-19 ST meeting: the whitelisted ODDS_QUERY returns odds
+# nodes for FCT (182 per 14 runners), TRI (364), FF (1001) and DBL (keyed by the FIRST leg's
+# raceNo, leg.races = [r, r+1]; odds = winner/winner only), but NONE for TCE / QTT / TBL
+# (pools exist, oddsNodes == []).  Odds are capped at 999 by the server ("999" = 999 or more).
+EXOTIC_POOLS = ("FCT", "TRI", "FF", "DBL")
+EXOTIC_CAP = 100                 # keep at most this many lowest-odds combinations per pool & race (~4k rows / meeting)
+ODDS_CAP_VALUE = 999.0           # server display cap: rows at the cap are dropped (= ">= cap")
 MIN_INTERVAL_S = 0.5            # <= 2 requests / second
 ORDERED_POOLS = {"FCT", "TCE", "QTT"}
 
@@ -284,6 +292,9 @@ def _post(body: dict, session: requests.Session | None = None, timeout: float = 
 # --------------------------------------------------------------------- parsing
 def normalise_comb(pool: str, comb_string: str) -> str:
     """'01,07' -> '1,7'; unordered pools sorted ascending, ordered pools kept."""
+    if "/" in str(comb_string):            # multi-race pools (DBL/TBL): '07/13' -> '7/13'
+        legs = [normalise_comb("WIN", x) for x in str(comb_string).split("/")]
+        return "/".join(legs)
     parts = [p.strip() for p in str(comb_string).replace("-", ",").split(",") if p.strip()]
     try:
         nums = [int(p) for p in parts]
@@ -330,7 +341,8 @@ def parse_pools(resp: dict, race_no: int | None = None) -> PoolOdds:
             book = out.setdefault(pool, {})
             out.meta[pool] = {"status": p.get("status"), "sell_status": p.get("sellStatus"),
                               "last_update": p.get("lastUpdateTime") or None,
-                              "n_nodes": len(p.get("oddsNodes") or [])}
+                              "n_nodes": len(p.get("oddsNodes") or []),
+                              "leg_races": [_to_int(x) for x in ((p.get("leg") or {}).get("races") or [])]}
             for n in p.get("oddsNodes") or []:
                 comb = normalise_comb(pool, n.get("combString", ""))
                 raw = n.get("oddsValue")
@@ -509,14 +521,29 @@ def snapshot_meeting(conn, date: str, venue: str, pools=DEFAULT_POOLS,
         if probe and not odds:
             break
         for pool, book in odds.items():
+            store_rn = int(rno)
+            if pool in EXOTIC_POOLS:
+                book = cap_book(book)
+                legs = [x for x in ((getattr(odds, "meta", {}) or {}).get(pool, {}).get("leg_races") or []) if x]
+                if pool == "DBL":            # stored on the LAST leg (same convention as dividends)
+                    store_rn = legs[-1] if legs else int(rno) + 1
             for comb, val in book.items():
-                rows.append((date, venue, int(rno), pool, comb, val, snapshot_at))
+                rows.append((date, venue, store_rn, pool, comb, val, snapshot_at))
     if rows:
         conn.executemany(
             "INSERT OR REPLACE INTO odds_snapshots (date, venue, race_no, pool, combination, odds, snapshot_at) "
             "VALUES (?,?,?,?,?,?,?)", rows)
         conn.commit()
     return len(rows)
+
+
+def cap_book(book: dict, cap: int = EXOTIC_CAP) -> dict:
+    """Exotic pool book trimmed for storage: priced rows below the server cap (999), at most
+    ``cap`` lowest-odds combinations.  A missing combination therefore means "odds at least
+    the highest stored value" (hkjc.picks uses that as a floor)."""
+    good = [(c, v) for c, v in book.items() if v and v < ODDS_CAP_VALUE]
+    good.sort(key=lambda cv: (cv[1], cv[0]))
+    return dict(good[:cap])
 
 
 def latest_odds(conn, date: str, venue: str) -> dict[int, dict[str, dict[str, float | None]]]:

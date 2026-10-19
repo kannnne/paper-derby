@@ -1029,7 +1029,7 @@ def _adaptive_section(src, d):
                     L.append(f"| {b1} | {b2} | {nr} | 0% | 唔落 | 0 | - | - |")
         L.append("")
     at = ad["au_tuned"]
-    L += ["**自動過關：參數網格（2024-25 揀；PLA 門檻 = 首選上名機率、QPL 門檻 = 三隻腳中位置Q機率、edge = 模型/市場）**", "",
+    L += ["**自動過關：參數網格（2024-25 揀；PLA 門檻 = 首選入三甲機率、QPL 門檻 = 三隻腳中位置Q機率、edge = 模型/市場）**", "",
           "| PLA≥ | QPL≥ | edge≥ | 樣本內 有過關賽馬日 | 樣本內 ROI | 樣本外 有過關賽馬日 | 樣本外 ROI |",
           "|---:|---:|---:|---:|---:|---:|---:|"]
     for g in ad["au_grid"]:
@@ -1133,7 +1133,7 @@ def adaptive_report(results) -> list[str]:
          "冇就用市場（獨贏賠率）隱含機率扣除彩池扣數（WIN/PLA/QIN/QPL 17.5%、TRI 23%、FF 25%，"
          "來源：馬會 Local Pools 頁面），再用 2024-25 季實際派彩校正。揀預期 ROI 最高而且 ≥ τ、命中機率 ≥ h_min 嘅玩法；"
          "冇一個合格就**唔落**。每場上限 $200。",
-         "2. **ADAPTIVE_ALLUP（過關）**：只用合資格場次（首選上名機率夠高 + 模型比市場更睇好）砌位置/位置Q 過關，"
+         "2. **ADAPTIVE_ALLUP（過關）**：只用合資格場次（首選入三甲機率夠高 + 模型比市場更睇好）砌位置/位置Q 過關，"
          "關數（2–6 關）同過關方式（NxM）按預期值揀；合資格場次少過 2 場就唔過關。", "",
          "> **偷看未來警告**：回測用嘅係**最終**獨贏賠率去估派彩同計「模型/市場」差距；實際賽前 2 小時嘅賠率會變，"
          "而且最終賠率已經包含晒最後一刻嘅資金流向，所以回測數字係**偏樂觀**嘅上限。"
@@ -1238,6 +1238,13 @@ def main(conn, start=None, end=None, source=None, report_path=REPORT_PATH, write
     if report_path:
         Path(report_path).parent.mkdir(parents=True, exist_ok=True)
         Path(report_path).write_text(md, encoding="utf-8")
+        try:     # keep the 每日精選 section (hkjc.picks.backtest_picks) in the regenerated report
+            from . import picks as _picks
+            if _picks.BACKTEST_PATH.exists():
+                _picks.write_report_section(json.loads(_picks.BACKTEST_PATH.read_text(encoding="utf-8")),
+                                            report_path)
+        except Exception as e:  # pragma: no cover - the grid report must not fail
+            print(f"[backtest] picks section not re-added: {e}")
         print(f"[backtest] report written: {report_path}")
     for d in results.values():
         d["res"].pop("meeting_data", None)

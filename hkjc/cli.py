@@ -94,6 +94,12 @@ def cmd_pre(conn, force=False, mtg=None, place_bets=True):
     scrape.scrape_racecard(conn, date, venue, refresh=True)
     n = odds.snapshot_meeting(conn, date, venue)
     log.info("odds snapshot rows: %s", n)
+    if n:
+        try:     # FCT / TRI / FF / DBL live odds for 今日精選 (hkjc.picks); optional, never fatal
+            nx = odds.snapshot_meeting(conn, date, venue, pools=odds.EXOTIC_POOLS)
+            log.info("exotic odds snapshot rows: %s", nx)
+        except Exception as e:
+            log.warning("exotic odds snapshot failed (%s); 今日精選 uses estimated odds", e)
     run_id = f"{'pre' if place_bets else 'prerep'}-{date}-{venue}-{now_hkt():%H%M}"
     result = pipeline.pre_meeting(conn, run_id, date, venue, place_bets=place_bets)
     path = REPORT_DIR / f"{date}_{venue}_賽前投注參考.md"

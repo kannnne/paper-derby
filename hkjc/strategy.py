@@ -604,6 +604,8 @@ class RaceProbs:
             t4 = self.t4
             from itertools import permutations as _pm
             return float(sum(t4[a, b, c, d] for a, b, c, d in _pm(x)))
+        if pool == "QTT":
+            return float(self.t4[x[0], x[1], x[2], x[3]])
         raise ValueError(pool)
 
     def hit_prob(self, pool, combos) -> float:

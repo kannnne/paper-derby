@@ -182,38 +182,46 @@ def validate_meeting(d):
 
 
 def validate_picks(p):
+    """SPEC_V2 「今日精選（第三版）」 shape - exactly what site/app.js reads."""
     if p is None:
         return
-    _req(p, {"title": str, "total_stake": NUM, "pla_6x63": (dict, type(None)), "qpl_2x3": list,
-             "banker": (dict, type(None)), "value": list, "note": str, "total_payout": OPT_NUM,
-             "total_profit": OPT_NUM}, "picks")
+    _req(p, {"title": str, "generated_at": str, "method_note": str, "odds_note": str, "total_stake": NUM,
+             "n_items": int, "total_payout": OPT_NUM, "total_profit": OPT_NUM, "items": list,
+             "banker": (dict, type(None))}, "picks")
     assert p["title"] == "今日精選"
-    res_t = (dict, type(None))
-    if p["pla_6x63"]:
-        _req(p["pla_6x63"], {"legs": list, "stake": NUM, "n_combos": (int, type(None)), "payout": OPT_NUM,
-                             "profit": OPT_NUM, "legs_hit": (int, type(None))}, "picks.pla_6x63")
-        for l in p["pla_6x63"]["legs"]:
-            _req(l, {"race_no": int, "post_time": OPT_STR, "horse_no": int, "horse_name": str, "jockey": str,
-                     "score": OPT_NUM, "p_place": OPT_NUM, "pla_odds": OPT_NUM, "result": res_t}, "6x63 leg")
-            if l["result"]:
-                _req(l["result"], {"finish_pos": (int, type(None)), "placed": (bool, type(None))}, "leg.result")
-    for t in p["qpl_2x3"]:
-        _req(t, {"ticket_no": int, "legs": list, "stake": NUM, "payout": OPT_NUM, "profit": OPT_NUM}, "qpl ticket")
-        for l in t["legs"]:
-            _req(l, {"race_no": int, "post_time": OPT_STR, "horses": list, "hit_pairs": (list, type(None))}, "qpl leg")
-            for h in l["horses"]:
-                _req(h, {"horse_no": int, "horse_name": str, "score": OPT_NUM, "p_place": OPT_NUM,
-                         "finish_pos": (int, type(None))}, "qpl horse")
+    assert p["n_items"] == sum(1 for i in p["items"] if i["grade"] == "精選")
+    assert p["total_stake"] == pytest.approx(sum(i["stake"] for i in p["items"] if i["grade"] == "精選"))
+    if not p["n_items"]:
+        assert "今日冇玩法過門檻，冇精選" in p["method_note"]
+        assert sum(1 for i in p["items"] if i["grade"] == "參考") <= 3
+    for it in p["items"]:
+        _req(it, {"rank": int, "kind": str, "race_no": int, "races": list, "post_time": OPT_STR, "pool": str,
+                  "pool_zh": str, "structure_zh": str, "legs": list, "n_combos": int, "unit_stake": NUM,
+                  "stake": NUM, "hit_prob": NUM, "exp_roi": NUM, "est_return_if_hit": OPT_NUM,
+                  "odds_source": str, "grade": str, "reason": str, "result": (dict, type(None))}, "pick item")
+        assert it["kind"] in ("single", "multi_race", "allup")
+        assert it["pool"] in ("WIN", "PLA", "QIN", "QPL", "FCT", "TRI", "TCE", "FF", "QTT", "DBL", "TBL")
+        assert it["odds_source"] in ("即時賠率", "估計賠率") and it["grade"] in ("精選", "參考")
+        assert 0 <= it["hit_prob"] <= 1 and it["stake"] == pytest.approx(it["n_combos"] * it["unit_stake"])
+        assert it["race_no"] == max(it["races"])
+        for k in ("ticket", "legs_raw", "key"):
+            assert k not in it, f"internal field {k} published"
+        if it["grade"] == "參考":
+            assert "未過門檻" in it["reason"]
+        assert "上名率" not in it["reason"]
+        for l in it["legs"]:
+            _req(l, {"race_no": int, "bankers": list, "selections": list, "positions": (list, type(None))}, "pick leg")
+            for h in l["bankers"] + l["selections"]:
+                _req(h, {"horse_no": int, "horse_name": str, "score": OPT_NUM}, "pick horse")
+            if l["positions"] is not None:
+                assert all(isinstance(x, list) and all(isinstance(h, int) for h in x) for x in l["positions"])
+        if it["result"] is not None:
+            _req(it["result"], {"hit": bool, "payout": NUM, "profit": NUM, "detail": str}, "pick result")
     if p["banker"]:
-        _req(p["banker"], {"race_no": int, "horse_no": int, "horse_name": str, "score": OPT_NUM, "p_place": NUM,
-                           "pla_odds": OPT_NUM, "reason": str, "result": res_t}, "banker")
-    assert len(p["value"]) <= 3
-    for v in p["value"]:
-        _req(v, {"race_no": int, "horse_no": int, "horse_name": str, "p_place": NUM, "pla_odds": NUM, "ev": NUM,
-                 "reason": str, "result": res_t}, "value")
-        assert v["ev"] >= 1.0
-    if not p.get("has_odds"):
-        assert p["value"] == [] and "賠率未開售" in p["note"]
+        _req(p["banker"], {"race_no": int, "horse_no": int, "horse_name": str, "p_place": NUM, "reason": str,
+                           "result": (dict, type(None))}, "banker")
+        if p["banker"]["result"]:
+            _req(p["banker"]["result"], {"finish_pos": (int, type(None)), "placed": (bool, type(None))}, "banker.result")
 
 
 def validate_history(d):
@@ -419,7 +427,7 @@ def test_bot_ticket_files(conn, tmp_path):
     publish.export_site(conn, out)
     po = _load(out / "data" / "bots" / "place_only.json")
     assert po["n_tickets"] == 1 and po["tickets"][0]["date"] == PAST and po["tickets"][0]["venue_zh"] == "沙田"
-    assert po["tickets"][0]["payout"] == 14.0 and po["tickets"][0]["reason"] == "上名率高"
+    assert po["tickets"][0]["payout"] == 14.0 and po["tickets"][0]["reason"] == "入三甲機率高"
     wv = _load(out / "data" / "bots" / "win_value.json")
     assert wv["tickets"][0]["status"] == "open" and wv["tickets"][0]["payout"] is None
     assert _load(out / "data" / "bots" / "monkey.json")["tickets"] == []
@@ -470,95 +478,104 @@ def test_site_static_files_review_fixes():
 
 
 # ------------------------------------------------------------------ 今日精選 (picks)
-def _place_fixed_combo(c, date=PAST, venue="ST", run="pre-past"):
-    ids = paper.place_tickets(c, run, date, venue, [
-        {"strategy": "fixed_combo:PLA_6x63", "ticket_no": 1, "pool": "PLA", "spec": "2x3", "unit_stake": 10.0,
-         "legs": [{"race_no": 1, "selections": [1], "pool": "PLA"}, {"race_no": 2, "selections": [1], "pool": "PLA"}]},
-        {"strategy": "fixed_combo:QPL_2x3", "ticket_no": 1, "pool": "QPL", "spec": "2x3", "unit_stake": 10.0,
-         "legs": [{"race_no": 1, "selections": [1, 2, 4], "pool": "QPL"},
-                  {"race_no": 2, "selections": [4, 3, 1], "pool": "QPL"}]},
-    ], replace=False, bot_id="fixed_combo", reason="固定玩法")
-    c.executemany("INSERT INTO bot_decisions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", [
-        (run, "fixed_combo", date, venue, 0, "bet", "PLA 6x63", "[]", 30.0, "固定玩法 6x63", ids[0], f"{date}T10:00:00"),
-        (run, "fixed_combo", date, venue, 0, "bet", "QPL 2x3 #1", "[]", 150.0, "固定玩法 QPL", ids[1], f"{date}T10:00:00")])
-    c.commit()
-    return ids
+OPEN_TH = {f: {"tau": -1.0, "h": 0.0} for f in ("WIN", "PLA", "QIN", "QPL", "FCT", "TRI", "TCE", "FF", "QTT",
+                                                 "DBL", "TBL", "ALLUP")}
 
 
-def test_picks_equal_fixed_combo_tickets_and_settle(conn, tmp_path):
-    ids = _place_fixed_combo(conn)
+def _pred(c, date=PAST, venue="ST", run="pre-past"):
+    import pandas as pd
+    return pd.read_sql_query(
+        "SELECT p.race_id, CAST(substr(p.race_id, 13, 2) AS INTEGER) AS race_no, p.horse_no, p.p_win, p.p_place, "
+        "u.win_odds, u.horse_name FROM predictions p LEFT JOIN runners u ON u.race_id=p.race_id AND "
+        "u.horse_no=p.horse_no WHERE p.run_id=? ORDER BY race_no, p.horse_no", c, params=(run,))
+
+
+def _run_daily_picks(c, th=None, run="pre-past"):
+    from hkjc import bots, picks
+    pred = _pred(c)
+    pk = picks.make_picks(pred, None, {"thresholds": th or OPEN_TH, "max_items": 3})
+    picks.save_picks(c, run, PAST, "ST", pk)
+    decs = bots.run_bots(c, run, PAST, "ST", pred, None, bots=["daily_picks"], picks=pk)
+    return pk, decs
+
+
+def test_picks_from_daily_picks_run_and_settle(conn, tmp_path):
+    pk, decs = _run_daily_picks(conn)
+    sel = [i for i in pk["items"] if i["grade"] == "精選"]
+    assert 1 <= len(sel) <= 3
+    bets_ = [d for d in decs if d["action"] == "bet"]
+    assert len(bets_) == len(sel) and {d["race_no"] for d in decs} >= {0, 1, 2}
     out = tmp_path / "s"
     publish.export_site(conn, out)
-    p = _load(out / "data" / "meetings" / f"{PAST}_ST.json")["picks"]
+    m = _load(out / "data" / "meetings" / f"{PAST}_ST.json")
+    p = m["picks"]
     validate_picks(p)
-    # open tickets: picks = the robot's tickets, no money yet
-    legs = [(l["race_no"], l["horse_no"]) for l in p["pla_6x63"]["legs"]]
-    assert legs == [(1, 1), (2, 1)] and p["pla_6x63"]["payout"] is None
-    assert [h["horse_no"] for h in p["qpl_2x3"][0]["legs"][0]["horses"]] == [1, 2, 4]
-    assert [h["horse_no"] for h in p["qpl_2x3"][0]["legs"][1]["horses"]] == [4, 3, 1]
-    assert p["pla_6x63"]["legs"][0]["horse_name"] == "快樂之星" and p["pla_6x63"]["legs"][0]["jockey"] == "甲騎師"
-    assert p["total_stake"] == 30.0 + 150.0 and p["total_payout"] is None
-    # results are in already: per-leg ticks before settlement
-    assert p["pla_6x63"]["legs"][0]["result"] == {"finish_pos": 1, "placed": True}
-    assert p["pla_6x63"]["legs"][1]["result"] == {"finish_pos": 4, "placed": False}
-    assert p["pla_6x63"]["legs_hit"] == 1
-    assert p["qpl_2x3"][0]["legs"][0]["hit_pairs"] == [[1, 2]] and p["qpl_2x3"][0]["legs"][1]["hit_pairs"] == [[3, 4]]
-    # banker = highest p_place of the meeting (race 1 / race 2 horse 1: 0.88; tie -> earlier race)
-    assert p["banker"]["race_no"] == 1 and p["banker"]["horse_no"] == 1 and p["banker"]["result"]["placed"] is True
-    assert p["value"] == [] and p["has_odds"] is False and "賠率未開售" in p["note"]
-
+    assert [i["rank"] for i in p["items"]] == [i["rank"] for i in pk["items"]]
+    assert p["total_payout"] is None and all(i["result"] is None for i in p["items"])   # tickets still open
+    assert p["items"][0]["legs"][0]["selections"][0]["horse_name"]                   # names from the card
+    assert p["banker"]["race_no"] in (1, 2) and p["banker"]["result"] is not None
+    assert {mm["date"]: mm["has_picks"] for mm in _load(out / "data" / "index.json")["meetings"]}[PAST] is True
+    # daily_picks robot's card lists exactly these tickets
+    db_ = {b["bot_id"]: b for b in m["bots"]}["daily_picks"]
+    assert db_["n_tickets"] == len(sel)
     paper.settle(conn, PAST)
     publish.export_site(conn, out)
     p = _load(out / "data" / "meetings" / f"{PAST}_ST.json")["picks"]
-    rows = {r["ticket_id"]: r for r in conn.execute("SELECT * FROM paper_tickets WHERE ticket_id IN (?,?)", ids)}
-    assert p["pla_6x63"]["payout"] == pytest.approx(rows[ids[0]]["payout"])
-    assert p["pla_6x63"]["profit"] == pytest.approx(rows[ids[0]]["profit"])
-    assert p["qpl_2x3"][0]["payout"] == pytest.approx(rows[ids[1]]["payout"]) and p["qpl_2x3"][0]["payout"] > 0
-    assert p["total_payout"] == pytest.approx(rows[ids[0]]["payout"] + rows[ids[1]]["payout"])
-    assert p["total_profit"] == pytest.approx(p["total_payout"] - 180.0)
-    idx = _load(out / "data" / "index.json")
-    assert {m["date"]: m["has_picks"] for m in idx["meetings"]}[PAST] is True
+    validate_picks(p)
+    rows = conn.execute("SELECT payout, profit FROM paper_tickets WHERE bot_id='daily_picks' ORDER BY ticket_no").fetchall()
+    got = [i["result"] for i in p["items"] if i["grade"] == "精選"]
+    assert [g["payout"] for g in got] == pytest.approx([r[0] for r in rows])
+    assert all(g["hypothetical"] is False for g in got)
+    assert p["total_payout"] == pytest.approx(sum(r[0] for r in rows))
+    assert p["total_profit"] == pytest.approx(p["total_payout"] - p["total_stake"])
 
 
-def test_picks_latest_run_and_value(conn, tmp_path, monkeypatch):
-    _place_fixed_combo(conn)
-    # a later run's tickets replace the earlier ones (void + new): picks follow the newest run
-    paper.void_open(conn, PAST, "ST", "fixed_combo", None, "作廢")
-    conn.execute("INSERT INTO runs VALUES (?,?,?,?,?,?)", ("pre-new", "pre_bet", PAST, "ST", f"{PAST}T11:00:00", "{}"))
-    conn.commit()
-    paper.place_tickets(conn, "pre-new", PAST, "ST", [
-        {"strategy": "fixed_combo:PLA_6x63", "ticket_no": 1, "pool": "PLA", "spec": "2x3", "unit_stake": 10.0,
-         "legs": [{"race_no": 1, "selections": [2], "pool": "PLA"}, {"race_no": 2, "selections": [3], "pool": "PLA"}]}],
-        replace=False, bot_id="fixed_combo")
-    odds = {1: {"PLA": {"1": 1.1, "2": 1.9, "3": 3.0, "4": 9.0}}, 2: {"PLA": {"1": 1.05, "4": 2.0}}}
-    monkeypatch.setattr(publish, "_latest_odds", lambda c, d, v: odds)
+def test_picks_reference_items_hypothetical_results(conn, tmp_path):
+    from hkjc import picks
+    pk, decs = _run_daily_picks(conn, th={f: None for f in OPEN_TH})
+    assert pk["n_items"] == 0 and pk["items"] and all(i["grade"] == "參考" for i in pk["items"])
+    assert "今日冇玩法過門檻，冇精選" in pk["method_note"]
+    assert not [d for d in decs if d["action"] == "bet"]
+    assert all("唔買" in d["reason"] for d in decs)
     out = tmp_path / "s"
     publish.export_site(conn, out)
     p = _load(out / "data" / "meetings" / f"{PAST}_ST.json")["picks"]
     validate_picks(p)
-    assert [(l["race_no"], l["horse_no"]) for l in p["pla_6x63"]["legs"]] == [(1, 2), (2, 3)]
-    assert p["qpl_2x3"] == [] and p["total_stake"] == 30.0
-    # EV = p_place x odds: r1#2 .66x1.9=1.254, r1#3 .44x3=1.32, r1#1 .88x1.1=.968 (<1), r1#4 .22x9=1.98,
-    # r2#4 .22x2=.44 -> best first, at most 3
-    assert [(v["race_no"], v["horse_no"]) for v in p["value"]] == [(1, 4), (1, 3), (1, 2)]
-    assert p["value"][0]["ev"] == pytest.approx(1.98) and "位置賠率" in p["value"][0]["reason"]
-    assert p["has_odds"] is True and p["value_note"] is None
+    for it, raw in zip(p["items"], pk["items"]):
+        assert it["result"]["hypothetical"] is True and "假設落注" in it["result"]["detail"]
+        assert it["result"]["payout"] == pytest.approx(picks.settle_item(raw, picks.DBData(conn, PAST, "ST"))["payout"])
+    assert p["total_payout"] == 0.0 and p["total_stake"] == 0
 
 
-def test_picks_null_without_tickets_or_predictions(conn, tmp_path):
-    conn.execute("INSERT INTO meetings VALUES (?,?,?,?,?,?)", ("2099-02-01", "ST", 1, "2099-02-01T13:00", "card", "x"))
-    conn.execute("INSERT INTO racecard (date, venue, race_no, horse_no, horse_name, jockey_name, trainer_name, "
-                 "weight, draw, scratched) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                 ("2099-02-01", "ST", 1, 1, "無名", "甲", "乙", 120, 1, 0))
+def test_picks_null_without_stored_picks(conn, tmp_path):
+    out = tmp_path / "s"
+    publish.export_site(conn, out)
+    for f in ("meetings/%s_ST.json" % PAST, "meetings/%s_HV.json" % FUT):
+        assert _load(out / "data" / f)["picks"] is None
+    assert not any(m["has_picks"] for m in _load(out / "data" / "index.json")["meetings"])
+
+
+def test_picks_latest_daily_picks_run_wins(conn, tmp_path):
+    from hkjc import picks
+    _run_daily_picks(conn, run="pre-a")
+    pk_b, _ = _run_daily_picks(conn, th={f: None for f in OPEN_TH}, run="pre-b")
+    conn.execute("UPDATE picks SET created_at='2000-01-01T00:00:00' WHERE run_id='pre-b'")  # older storage time
     conn.commit()
-    m = publish.export_meeting(conn, "2099-02-01", "ST")
-    assert m["picks"] is None
-    assert publish.build_picks([], []) is None
-    # predictions but no fixed_combo tickets: banker only, no tickets
-    f = publish.export_meeting(conn, FUT, "HV")
-    validate_picks(f["picks"])
-    assert f["picks"]["pla_6x63"] is None and f["picks"]["qpl_2x3"] == [] and f["picks"]["total_stake"] == 0
-    assert f["picks"]["banker"]["horse_no"] == 1          # horse 3 is scratched
+    m = publish.export_meeting(conn, PAST, "ST")
+    assert m["picks"]["n_items"] == 0           # the robot's latest decisions are pre-b's
+    assert picks.load_picks(conn, PAST, "ST")["n_items"] > 0
+
+
+def test_pre_report_picks_md(conn):
+    from hkjc import pipeline
+    pk, _ = _run_daily_picks(conn)
+    md = pipeline._picks_md(pk)
+    assert md.startswith("## 今日精選") and "精選" in md and "全日最穩" in md and "入三甲機率" in md
+    assert "| 1 | 精選 |" in md
+    pk0, _ = _run_daily_picks(conn, th={f: None for f in OPEN_TH}, run="pre-z")
+    md0 = pipeline._picks_md(pk0)
+    assert "今日冇精選" in md0 and "參考" in md0
+    assert pipeline._picks_md(None).startswith("## 今日精選")
 
 
 def test_bots_grouped_tickets_and_skips(conn, tmp_path):
@@ -579,14 +596,3 @@ def test_bots_grouped_tickets_and_skips(conn, tmp_path):
 def test_reason_text_renamed():
     assert publish._reason_txt("（注碼計喺過關飛，見第0場）") == "（注碼計喺過關飛，見「過關決定」）"
     assert publish._reason_txt("今日冇過關飛（原因見第0場跨場決定；x）") == "今日冇過關飛（原因見「過關決定」；x）"
-
-
-def test_pre_report_picks_md(conn):
-    _place_fixed_combo(conn)
-    paper.settle(conn, PAST)
-    from hkjc import pipeline
-    md = pipeline._pre_picks(conn, PAST, "ST", [])
-    assert md.startswith("## 今日精選") and "位置 6x63" in md and "位置Q 2x3 × 1 條" in md
-    assert "第1場" in md and "1號 快樂之星" in md and "全日最穩" in md and "合共 $180（模擬）" in md
-    assert "值博之選" in md and "賠率未開售" in md
-    assert pipeline._picks_md(None).startswith("## 今日精選")

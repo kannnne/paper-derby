@@ -41,7 +41,16 @@
 - JSON 格式：
   - `site/data/index.json`：`{updated_at, disclaimer, next_meeting:{date,venue,first_post_time}, meetings:[{date, venue, status:'pre'|'results', file}], bots:[{id, name, style, description, bankroll, start_bankroll, live:{n_meetings, stake, returns, profit, roi, hit_rate}}]}`（**冇 `backtest`**）
   - `site/data/meetings/YYYY-MM-DD_VV.json`：`{date, venue, venue_zh, status, generated_at, odds_snapshot_at, model_version, races:[{race_no, post_time, race_class, distance, surface, course, going, race_name, horses:[{horse_no, horse_name, jockey, trainer, draw, weight, score, rank, p_win, p_place, win_odds, pla_odds, sub_scores:{...}, reasons:[...], scratched, result:{finish_pos, final_win_odds}|null}], decisions:[{bot_id, action, structure, selections, stake, reason, payout|null, profit|null}], result:{placings:[...], dividends:{WIN:[[comb,div]], PLA:[...], QIN:[...], QPL:[...], TRI:[...], FF:[...]}}|null}], bots:[{bot_id, stake, payout, profit, tickets:[{strategy, legs, total_stake, payout, reason}]}]}`
-  - **今日精選** `meetings/*.json` 加 `picks`（null = 未有）：用戶原本嗰套「1 條位置 6x63（每場 1 隻，63 注 $630）+ 3 條位置Q 2x3（每場 3 隻，每條 15 注 $150）＝合共 $1,080」，**直接取自 `fixed_combo` 機械人該賽馬日最新一次運行嘅注項**（所以精選永遠等於機械人實際買咗嘅嘢），另加「全日最穩」（全日所有未退出馬匹之中上名率最高）同「值博之選」（最多 3 隻；有即時位置賠率先計，位置 EV＝上名率×位置賠率 ≥ 1.0 而且上名率 ≥ 20%；未開售就係空清單＋「賠率未開售」）。賽後每關／每匹馬標 ✓/✗、中幾多關、每條飛同全日派彩盈虧。格式見 `hkjc/publish.py` docstring。首頁喺「賽馬日紀錄」下面、「最新馬匹評分」上面顯示（下一個賽馬日機械人決定咗就顯示佢，否則最近一個有精選嘅賽馬日）；賽馬日頁喺場次分頁上面顯示；賽前報告 `## 今日精選` 放喺免責聲明之後第一段。
+  - **今日精選（第三版，取代固定組合版本）** — 由分析引擎 `hkjc/picks.py` 決定，**唔固定任何配搭**：每場（同跨場）比較馬會所有玩法（獨贏 WIN、位置 PLA、連贏 QIN、位置Q QPL、二重彩 FCT、單T TRI、三重彩 TCE、四連環 FF、四重彩 QTT、孖寶 DBL、三寶 TBL，同埋 WIN/PLA/QIN/QPL 過關），各種結構（單注、複式、膽拖、幾多膽幾多腳、位置/次序），按模型機率計命中機率同預期回報，過門檻先入選；門檻只用 2024-25 季調、2025-26 起樣本外驗證。冇嘢過門檻就 `picks.items=[]` 並寫明「今日冇精選」。`fixed_combo` 機械人照舊存在但同精選無關；新增機械人 `daily_picks`（每日精選）照精選落注以追蹤成績。
+    `meetings/*.json` 嘅 `picks`（null = 未有）格式：
+    `{title:"今日精選", generated_at, method_note, odds_note, total_stake, n_items, total_payout|null, total_profit|null,
+      items:[{rank, kind:"single"|"multi_race"|"allup", race_no (multi 時 = 最後一關場次), races:[race_no...], post_time,
+              pool, pool_zh, structure_zh (例如「2 膽拖 6 腳」「複式 4 隻」「位置過關 3x4」), 
+              legs:[{race_no, bankers:[{horse_no, horse_name, score}], selections:[{horse_no, horse_name, score}], positions:[[...]]|null}],
+              n_combos, unit_stake, stake, hit_prob, exp_roi, est_return_if_hit, odds_source:"即時賠率"|"估計賠率", grade:"精選"|"參考",
+              reason, result:{hit, payout, profit, detail}|null}],
+      banker:{...同之前「全日最穩」}|null}`
+    首頁同賽馬日頁位置不變；賽前報告 `## 今日精選` 列出同一批項目。
   - 機械人落單按機械人分組：`meetings/*.json` 嘅 `bots[]` 每張飛有 `race_no`（0＝過關）、`structure`、`selections`、`leg_hits`、`hit`，另加 `bots[].skips:[{race_no, structure, reason}]`（唔買嘅場次同原因）。賽馬日頁只有一個「機械人當日落單」區（10 張卡，每隻機械人成日所有注項擺埋一齊，單場同過關一樣；卡頭顯示注數、注碼、派彩、盈虧，「N 場唔買」可展開睇原因）；場次分頁只顯示排位、評分、賽果、派彩，加一行「本場有落注：」chips 跳去對應機械人卡。舊有「跨場／過關決定」同每場機械人決定區已取消；舊原因文字「見第0場」喺網站顯示做「見「過關決定」」。
   - 唔再顯示「賽後補做」提示（meeting JSON 冇 `note`）。
   - `site/data/bot_history.json`：每隻機械人實盤（paper）資金曲線（**冇回測曲線**）；`site/data/bots/<bot_id>.json`：該機械人全部注項。
