@@ -179,3 +179,13 @@ cd "<項目資料夾>"
 - **冇證據有長期優勢**：回測入面所有固定組合都係負回報（例如位置 6x63 約 −40%、3 條位置Q 2x3 約 −14% 至 −19%）；少數好睇嘅結果好可能只係運氣（測試咗過百個策略）。
 - 模型只用賽前已知資料（之前嘅賽果 + 排位表 + 即時賠率），每次預測只會用該日之前嘅數據訓練。
 - 只係模擬：唔會落真注，報告內容**唔構成任何投資或投注建議**。博彩要有節制。
+
+## 雲端 24/7 運行（GitHub Actions，現行方式）
+
+- Repo：`kannnne/paper-derby`（公開）。公開網站：https://kannnne.github.io/paper-derby/
+- `.github/workflows/race-bot.yml` 每 30 分鐘（香港時間 08:00–01:59）喺 GitHub 伺服器跑一次 `python -m hkjc tick`，自動做賽前（第一場前 2 小時）同賽後（最後一場後約 45 分鐘）流程，然後 commit 數據並重新發佈網站。關機都照跑。
+- 資料庫以文字形式存喺 `data/db/*.sql`（每次運行前還原、運行後匯出）；模型每次喺雲端重新訓練，唔存入 git。
+- 手動觸發：GitHub → Actions → race-bot → Run workflow（command 可填 `tick` / `probe` / `report`）。
+- 本機想睇最新數據：`git pull` 之後 `.venv/bin/python -m hkjc.dbdump load data/db data/hkjc.db`。
+- Mac 本機排程已停用（避免雙重落注）。如要改返用本機，先喺 GitHub 停用 workflow，再跑 `scripts/install_scheduler.sh`。
+- 注意：GitHub 排程繁忙時可能延遲 5–30 分鐘；公開 repo 連續 60 日冇活動會被暫停排程（賽季期間每次賽馬日都有 commit，唔會觸發）。
