@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-from . import bots, model, paper, scores, strategy
+from . import bots, model, paper, publish, scores, strategy
 from .odds import latest_odds
 
 log = logging.getLogger("hkjc.pipeline")
@@ -130,6 +130,75 @@ def _bots_md(decisions, names, conn) -> str:
     return "\n".join(out) + "\n"
 
 
+def _picks_md(picks) -> str:
+    """「## 今日精選」: the fixed_combo robot's tickets (位置 6x63 + 3 條位置Q 2x3) + 全日最穩 + 值博之選."""
+    if not picks:
+        return "## 今日精選\n_(未有精選：模型未有預測／固定組合未有決定)_\n"
+    def tm(ts):
+        return f" {ts[11:16]}" if ts and len(ts) >= 16 else ""
+    def money(x):
+        return "-" if x is None else f"${x:,.2f}".replace(".00", "")
+    out = ["## 今日精選", f"_{picks.get('note') or ''}_", ""]
+    p6 = picks.get("pla_6x63")
+    if p6:
+        out.append(f"**位置 6x63（每場 1 隻，{p6.get('n_combos') or 63} 注 × $10 = {money(p6['stake'])}）**")
+        for l in p6["legs"]:
+            res = ""
+            if l.get("result"):
+                res = f" → 第{l['result']['finish_pos'] or '-'}名 {'✅' if l['result']['placed'] else '❌'}"
+            out.append(f"- 第{l['race_no']}場{tm(l.get('post_time'))}　{l['horse_no']}號 {l['horse_name']}"
+                       f"（{l.get('jockey') or '-'}）評分 {_num(l.get('score'), 0)}｜上名率 {_pct(l.get('p_place'))}"
+                       f"｜位置賠率 {_num(l.get('pla_odds'))}{res}")
+        if p6.get("payout") is not None:
+            out.append(f"- 中 {p6.get('legs_hit')}/{len(p6['legs'])} 關 → 派彩 {money(p6['payout'])}（盈虧 {p6['profit']:+,.2f}）")
+    else:
+        out.append("**位置 6x63**：今日冇買")
+    out.append("")
+    q = picks.get("qpl_2x3") or []
+    if q:
+        out.append(f"**位置Q 2x3 × {len(q)} 條（每場 3 隻，每條 15 注 × $10 = $150）**")
+        for t in q:
+            legs = "；".join(f"第{l['race_no']}場{tm(l.get('post_time'))} " +
+                            "、".join(f"{h['horse_no']} {h['horse_name']}" for h in l["horses"]) +
+                            ("" if l.get("hit_pairs") is None else
+                             (" ✅ 中 " + "、".join("-".join(map(str, pr)) for pr in l["hit_pairs"]) if l["hit_pairs"] else " ❌"))
+                            for l in t["legs"])
+            res = "" if t.get("payout") is None else f" → 派彩 {money(t['payout'])}（盈虧 {t['profit']:+,.2f}）"
+            out.append(f"- 第{t['ticket_no']}條：{legs}{res}")
+    else:
+        out.append("**位置Q 2x3**：今日冇買")
+    out.append("")
+    b = picks.get("banker")
+    if b:
+        out.append(f"**全日最穩**：第{b['race_no']}場 {b['horse_no']}號 {b['horse_name']} — {b['reason']}")
+    v = picks.get("value") or []
+    if v:
+        out.append("**值博之選**：")
+        out += [f"- 第{x['race_no']}場 {x['horse_no']}號 {x['horse_name']} — {x['reason']}" for x in v]
+    else:
+        out.append(f"**值博之選**：{picks.get('value_note') or '冇'}")
+    out.append("")
+    tot = f"**合共 {money(picks.get('total_stake'))}（模擬）**"
+    if picks.get("total_payout") is not None:
+        tot += f"　派彩 {money(picks['total_payout'])}，盈虧 {picks['total_profit']:+,.2f}"
+    out += [tot, ""]
+    return "\n".join(out) + "\n"
+
+
+def _pre_picks(conn, date, venue, decisions) -> str:
+    """Picks for the pre-meeting report: this run's fixed_combo tickets (also in a report-only run,
+    where nothing is written) on top of the meeting's exported horses.  Never raises."""
+    try:
+        meeting = publish.export_meeting(conn, date, venue)
+        fc = [dict(d["ticket"]) for d in decisions
+              if d.get("bot_id") == publish.PICKS_BOT and d.get("ticket") and d.get("action") == "bet"]
+        picks = publish.build_picks(meeting["races"], fc) if fc else meeting.get("picks")
+        return _picks_md(picks)
+    except Exception:
+        log.exception("今日精選 failed; report continues without it")
+        return ""
+
+
 # ---------------------------------------------------------------------- pre-meeting
 def pre_meeting(conn, run_id, date, venue, config=None, place_bets=True) -> dict:
     """place_bets=False (scheduler woke up too late, < 15 min before race 1): the
@@ -190,6 +259,7 @@ def pre_meeting(conn, run_id, date, venue, config=None, place_bets=True) -> dict
     md = [f"# {date} {VENUE_ZH.get(venue, venue)} 賽前投注參考\n",
           f"生成時間：{now}　｜　賠率快照：{snap or '未有（賠率未開售，只用模型）'}　｜　模型：{pred['model_version'].iloc[0]}\n",
           DISCLAIMER + "\n",
+          _pre_picks(conn, date, venue, decisions),
           ("## 模擬投注（機械人已記錄）\n" if place_bets else
            "## 參考組合（⚠️ 排程太遲執行，已過落注時限：只供參考，機械人冇記錄模擬注）\n"),
           _bots_md(decisions, names, conn),

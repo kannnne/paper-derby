@@ -165,10 +165,55 @@ def validate_meeting(d):
             for pool, rows in r["result"]["dividends"].items():
                 assert pool in publish.RESULT_POOLS
                 assert all(isinstance(c, str) and isinstance(v, OPT_NUM) for c, v in rows)
+    assert "note" not in d, "the 賽後補做 notice is no longer published"
     for b in d["bots"]:
-        _req(b, {"bot_id": str, "stake": NUM, "payout": OPT_NUM, "profit": OPT_NUM, "tickets": list}, "meeting.bots")
+        _req(b, {"bot_id": str, "stake": NUM, "payout": OPT_NUM, "profit": OPT_NUM, "tickets": list,
+                 "skips": list}, "meeting.bots")
         for t in b["tickets"]:
-            _req(t, {"strategy": str, "legs": list, "total_stake": NUM, "payout": OPT_NUM, "reason": str}, "ticket")
+            _req(t, {"strategy": str, "legs": list, "total_stake": NUM, "payout": OPT_NUM, "profit": OPT_NUM,
+                     "reason": str, "status": str, "race_no": int, "structure": str, "selections": (list, dict),
+                     "leg_hits": list, "hit": (bool, type(None))}, "ticket")
+            assert len(t["leg_hits"]) == len(t["legs"])
+            assert (t["payout"] is None) == (t["status"] != "settled")
+        for x in b["skips"]:
+            _req(x, {"race_no": int, "structure": str, "reason": str}, "skip")
+    if "picks" in d:
+        validate_picks(d["picks"])
+
+
+def validate_picks(p):
+    if p is None:
+        return
+    _req(p, {"title": str, "total_stake": NUM, "pla_6x63": (dict, type(None)), "qpl_2x3": list,
+             "banker": (dict, type(None)), "value": list, "note": str, "total_payout": OPT_NUM,
+             "total_profit": OPT_NUM}, "picks")
+    assert p["title"] == "今日精選"
+    res_t = (dict, type(None))
+    if p["pla_6x63"]:
+        _req(p["pla_6x63"], {"legs": list, "stake": NUM, "n_combos": (int, type(None)), "payout": OPT_NUM,
+                             "profit": OPT_NUM, "legs_hit": (int, type(None))}, "picks.pla_6x63")
+        for l in p["pla_6x63"]["legs"]:
+            _req(l, {"race_no": int, "post_time": OPT_STR, "horse_no": int, "horse_name": str, "jockey": str,
+                     "score": OPT_NUM, "p_place": OPT_NUM, "pla_odds": OPT_NUM, "result": res_t}, "6x63 leg")
+            if l["result"]:
+                _req(l["result"], {"finish_pos": (int, type(None)), "placed": (bool, type(None))}, "leg.result")
+    for t in p["qpl_2x3"]:
+        _req(t, {"ticket_no": int, "legs": list, "stake": NUM, "payout": OPT_NUM, "profit": OPT_NUM}, "qpl ticket")
+        for l in t["legs"]:
+            _req(l, {"race_no": int, "post_time": OPT_STR, "horses": list, "hit_pairs": (list, type(None))}, "qpl leg")
+            for h in l["horses"]:
+                _req(h, {"horse_no": int, "horse_name": str, "score": OPT_NUM, "p_place": OPT_NUM,
+                         "finish_pos": (int, type(None))}, "qpl horse")
+    if p["banker"]:
+        _req(p["banker"], {"race_no": int, "horse_no": int, "horse_name": str, "score": OPT_NUM, "p_place": NUM,
+                           "pla_odds": OPT_NUM, "reason": str, "result": res_t}, "banker")
+    assert len(p["value"]) <= 3
+    for v in p["value"]:
+        _req(v, {"race_no": int, "horse_no": int, "horse_name": str, "p_place": NUM, "pla_odds": NUM, "ev": NUM,
+                 "reason": str, "result": res_t}, "value")
+        assert v["ev"] >= 1.0
+    if not p.get("has_odds"):
+        assert p["value"] == [] and "賠率未開售" in p["note"]
 
 
 def validate_history(d):
@@ -422,3 +467,126 @@ def test_site_static_files_review_fixes():
     assert ".DS_Store" in (site / ".gitignore").read_text(encoding="utf-8")
     for txt in (js, css, html):
         assert Path.home().name not in txt and "/Users/" not in txt
+
+
+# ------------------------------------------------------------------ 今日精選 (picks)
+def _place_fixed_combo(c, date=PAST, venue="ST", run="pre-past"):
+    ids = paper.place_tickets(c, run, date, venue, [
+        {"strategy": "fixed_combo:PLA_6x63", "ticket_no": 1, "pool": "PLA", "spec": "2x3", "unit_stake": 10.0,
+         "legs": [{"race_no": 1, "selections": [1], "pool": "PLA"}, {"race_no": 2, "selections": [1], "pool": "PLA"}]},
+        {"strategy": "fixed_combo:QPL_2x3", "ticket_no": 1, "pool": "QPL", "spec": "2x3", "unit_stake": 10.0,
+         "legs": [{"race_no": 1, "selections": [1, 2, 4], "pool": "QPL"},
+                  {"race_no": 2, "selections": [4, 3, 1], "pool": "QPL"}]},
+    ], replace=False, bot_id="fixed_combo", reason="固定玩法")
+    c.executemany("INSERT INTO bot_decisions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", [
+        (run, "fixed_combo", date, venue, 0, "bet", "PLA 6x63", "[]", 30.0, "固定玩法 6x63", ids[0], f"{date}T10:00:00"),
+        (run, "fixed_combo", date, venue, 0, "bet", "QPL 2x3 #1", "[]", 150.0, "固定玩法 QPL", ids[1], f"{date}T10:00:00")])
+    c.commit()
+    return ids
+
+
+def test_picks_equal_fixed_combo_tickets_and_settle(conn, tmp_path):
+    ids = _place_fixed_combo(conn)
+    out = tmp_path / "s"
+    publish.export_site(conn, out)
+    p = _load(out / "data" / "meetings" / f"{PAST}_ST.json")["picks"]
+    validate_picks(p)
+    # open tickets: picks = the robot's tickets, no money yet
+    legs = [(l["race_no"], l["horse_no"]) for l in p["pla_6x63"]["legs"]]
+    assert legs == [(1, 1), (2, 1)] and p["pla_6x63"]["payout"] is None
+    assert [h["horse_no"] for h in p["qpl_2x3"][0]["legs"][0]["horses"]] == [1, 2, 4]
+    assert [h["horse_no"] for h in p["qpl_2x3"][0]["legs"][1]["horses"]] == [4, 3, 1]
+    assert p["pla_6x63"]["legs"][0]["horse_name"] == "快樂之星" and p["pla_6x63"]["legs"][0]["jockey"] == "甲騎師"
+    assert p["total_stake"] == 30.0 + 150.0 and p["total_payout"] is None
+    # results are in already: per-leg ticks before settlement
+    assert p["pla_6x63"]["legs"][0]["result"] == {"finish_pos": 1, "placed": True}
+    assert p["pla_6x63"]["legs"][1]["result"] == {"finish_pos": 4, "placed": False}
+    assert p["pla_6x63"]["legs_hit"] == 1
+    assert p["qpl_2x3"][0]["legs"][0]["hit_pairs"] == [[1, 2]] and p["qpl_2x3"][0]["legs"][1]["hit_pairs"] == [[3, 4]]
+    # banker = highest p_place of the meeting (race 1 / race 2 horse 1: 0.88; tie -> earlier race)
+    assert p["banker"]["race_no"] == 1 and p["banker"]["horse_no"] == 1 and p["banker"]["result"]["placed"] is True
+    assert p["value"] == [] and p["has_odds"] is False and "賠率未開售" in p["note"]
+
+    paper.settle(conn, PAST)
+    publish.export_site(conn, out)
+    p = _load(out / "data" / "meetings" / f"{PAST}_ST.json")["picks"]
+    rows = {r["ticket_id"]: r for r in conn.execute("SELECT * FROM paper_tickets WHERE ticket_id IN (?,?)", ids)}
+    assert p["pla_6x63"]["payout"] == pytest.approx(rows[ids[0]]["payout"])
+    assert p["pla_6x63"]["profit"] == pytest.approx(rows[ids[0]]["profit"])
+    assert p["qpl_2x3"][0]["payout"] == pytest.approx(rows[ids[1]]["payout"]) and p["qpl_2x3"][0]["payout"] > 0
+    assert p["total_payout"] == pytest.approx(rows[ids[0]]["payout"] + rows[ids[1]]["payout"])
+    assert p["total_profit"] == pytest.approx(p["total_payout"] - 180.0)
+    idx = _load(out / "data" / "index.json")
+    assert {m["date"]: m["has_picks"] for m in idx["meetings"]}[PAST] is True
+
+
+def test_picks_latest_run_and_value(conn, tmp_path, monkeypatch):
+    _place_fixed_combo(conn)
+    # a later run's tickets replace the earlier ones (void + new): picks follow the newest run
+    paper.void_open(conn, PAST, "ST", "fixed_combo", None, "作廢")
+    conn.execute("INSERT INTO runs VALUES (?,?,?,?,?,?)", ("pre-new", "pre_bet", PAST, "ST", f"{PAST}T11:00:00", "{}"))
+    conn.commit()
+    paper.place_tickets(conn, "pre-new", PAST, "ST", [
+        {"strategy": "fixed_combo:PLA_6x63", "ticket_no": 1, "pool": "PLA", "spec": "2x3", "unit_stake": 10.0,
+         "legs": [{"race_no": 1, "selections": [2], "pool": "PLA"}, {"race_no": 2, "selections": [3], "pool": "PLA"}]}],
+        replace=False, bot_id="fixed_combo")
+    odds = {1: {"PLA": {"1": 1.1, "2": 1.9, "3": 3.0, "4": 9.0}}, 2: {"PLA": {"1": 1.05, "4": 2.0}}}
+    monkeypatch.setattr(publish, "_latest_odds", lambda c, d, v: odds)
+    out = tmp_path / "s"
+    publish.export_site(conn, out)
+    p = _load(out / "data" / "meetings" / f"{PAST}_ST.json")["picks"]
+    validate_picks(p)
+    assert [(l["race_no"], l["horse_no"]) for l in p["pla_6x63"]["legs"]] == [(1, 2), (2, 3)]
+    assert p["qpl_2x3"] == [] and p["total_stake"] == 30.0
+    # EV = p_place x odds: r1#2 .66x1.9=1.254, r1#3 .44x3=1.32, r1#1 .88x1.1=.968 (<1), r1#4 .22x9=1.98,
+    # r2#4 .22x2=.44 -> best first, at most 3
+    assert [(v["race_no"], v["horse_no"]) for v in p["value"]] == [(1, 4), (1, 3), (1, 2)]
+    assert p["value"][0]["ev"] == pytest.approx(1.98) and "位置賠率" in p["value"][0]["reason"]
+    assert p["has_odds"] is True and p["value_note"] is None
+
+
+def test_picks_null_without_tickets_or_predictions(conn, tmp_path):
+    conn.execute("INSERT INTO meetings VALUES (?,?,?,?,?,?)", ("2099-02-01", "ST", 1, "2099-02-01T13:00", "card", "x"))
+    conn.execute("INSERT INTO racecard (date, venue, race_no, horse_no, horse_name, jockey_name, trainer_name, "
+                 "weight, draw, scratched) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                 ("2099-02-01", "ST", 1, 1, "無名", "甲", "乙", 120, 1, 0))
+    conn.commit()
+    m = publish.export_meeting(conn, "2099-02-01", "ST")
+    assert m["picks"] is None
+    assert publish.build_picks([], []) is None
+    # predictions but no fixed_combo tickets: banker only, no tickets
+    f = publish.export_meeting(conn, FUT, "HV")
+    validate_picks(f["picks"])
+    assert f["picks"]["pla_6x63"] is None and f["picks"]["qpl_2x3"] == [] and f["picks"]["total_stake"] == 0
+    assert f["picks"]["banker"]["horse_no"] == 1          # horse 3 is scratched
+
+
+def test_bots_grouped_tickets_and_skips(conn, tmp_path):
+    out = tmp_path / "s"
+    publish.export_site(conn, out)
+    m = _load(out / "data" / "meetings" / f"{PAST}_ST.json")
+    bots = {b["bot_id"]: b for b in m["bots"]}
+    po = bots["place_only"]
+    assert po["tickets"][0]["race_no"] == 1 and po["tickets"][0]["structure"] == "PLA 位置"
+    assert po["tickets"][0]["selections"] == [1, 4] and po["tickets"][0]["leg_hits"] == [True]
+    assert po["tickets"][0]["hit"] is True
+    assert po["skips"] == [{"race_no": 2, "structure": "PLA 位置", "reason": "冇馬過門檻"}]
+    pp = bots["pla_parlay"]["tickets"][0]
+    assert pp["race_no"] == 0 and pp["structure"] == "PLA 2x3" and pp["leg_hits"] == [True, True]
+    assert bots["monkey"]["skips"][0]["reason"] == "資金不足"
+
+
+def test_reason_text_renamed():
+    assert publish._reason_txt("（注碼計喺過關飛，見第0場）") == "（注碼計喺過關飛，見「過關決定」）"
+    assert publish._reason_txt("今日冇過關飛（原因見第0場跨場決定；x）") == "今日冇過關飛（原因見「過關決定」；x）"
+
+
+def test_pre_report_picks_md(conn):
+    _place_fixed_combo(conn)
+    paper.settle(conn, PAST)
+    from hkjc import pipeline
+    md = pipeline._pre_picks(conn, PAST, "ST", [])
+    assert md.startswith("## 今日精選") and "位置 6x63" in md and "位置Q 2x3 × 1 條" in md
+    assert "第1場" in md and "1號 快樂之星" in md and "全日最穩" in md and "合共 $180（模擬）" in md
+    assert "值博之選" in md and "賠率未開售" in md
+    assert pipeline._picks_md(None).startswith("## 今日精選")

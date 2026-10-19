@@ -657,11 +657,11 @@ def _leg_rows(bid, ctxs, tickets_dec, label):
         if any_leg:
             out.append(_dec(bid, x.rn, "bet" if placed else "skip", label,
                             sels, 0.0,
-                            f"第{x.rn}場係過關腳：" + "；".join(parts) + "（注碼計喺過關飛，見第0場）"))
+                            f"第{x.rn}場係過關腳：" + "；".join(parts) + "（注碼計喺過關飛，見「過關決定」）"))
         else:
             top = f"首選 {h}號 上名率{_pc(x.pp[h])}" if h else f"{x.n} 匹出賽"
             why = (f"第{x.rn}場唔係過關腳（{top}，唔係入選嘅最有信心場次）" if tickets_dec else
-                   f"第{x.rn}場：今日冇過關飛（原因見第0場跨場決定；{top}）")
+                   f"第{x.rn}場：今日冇過關飛（原因見「過關決定」；{top}）")
             out.append(_dec(bid, x.rn, "skip", label, [], 0.0, why))
     return out
 
