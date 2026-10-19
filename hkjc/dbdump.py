@@ -55,7 +55,7 @@ def dump(db_path, out_dir) -> list[Path]:
     tables = _tables(conn)
     for t in tables:
         cols, pk = _cols(conn, t)
-        keep = [c for c in cols if c not in VOLATILE.get(t, set())]
+        keep = sorted(c for c in cols if c not in VOLATILE.get(t, set()))  # stable across schema histories
         order = ", ".join(pk) if pk else "rowid"
         path = out / f"{t}.sql"
         tmp = path.with_suffix(".sql.tmp")
