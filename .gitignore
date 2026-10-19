@@ -17,3 +17,4 @@ data/backfill*.log
 scripts/*.plist
 scripts/install_scheduler.sh
 scripts/uninstall_scheduler.sh
+tools/
