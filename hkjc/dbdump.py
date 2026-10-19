@@ -27,7 +27,7 @@ def _lit(v) -> str:
     if isinstance(v, float):
         if v != v:
             return "NULL"
-        return repr(v)
+        return format(v, ".15g")  # 15 sig. digits: identical round-trip on every platform
     if isinstance(v, (bytes, bytearray)):
         return "X'" + bytes(v).hex() + "'"
     s = "'" + str(v).replace("'", "''") + "'"
