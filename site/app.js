@@ -302,7 +302,7 @@
       var html = '<div class="hs-head"><div><b class="hs-title">' + meetingName(m) + '</b> <span class="chip status-' + esc(m.status) + '">' +
         esc(STATUS_ZH[m.status] || m.status) + "</span>" +
         '<div class="muted small">' + races.length + " 場有評分 · 評分生成時間 " + esc(m.generated_at ? String(m.generated_at).replace("T", " ").slice(0, 16) : DASH) +
-        "（香港時間）</div></div>" +
+        "（香港時間）</div>" + (m.note ? '<div class="retro-note">' + esc(m.note) + "</div>" : "") + "</div>" +
         '<a class="hs-link" id="hs-link" href="#/meeting/' + id + "/" + rn + '">完整賽馬日頁 →</a></div>';
       if (!isNext && nm) html += '<p class="small muted hs-note">' + nextScoresNote(idx) + "到時呢度會自動換成新賽馬日。</p>";
       html += '<div class="hs-tabs" role="tablist" aria-label="場次">' + races.map(function (r) {
@@ -629,6 +629,7 @@
       '<label class="small muted" style="display:flex;align-items:center;gap:6px">賽馬日 <select class="select" id="mtg-sel">' + opts + "</select></label></div>";
     html += '<div class="mtg-meta"><span>賠率快照：' + (m.odds_snapshot_at ? esc(String(m.odds_snapshot_at).replace("T", " ").slice(0, 16)) : "未開售（只用模型估計）") + "</span>" +
       "<span>模型：" + esc(m.model_version || DASH) + "</span><span>生成時間：" + esc(m.generated_at ? String(m.generated_at).replace("T", " ").slice(0, 16) : DASH) + "</span></div>";
+    if (m.note) html += '<div class="retro-note">' + esc(m.note) + "</div>";
 
     html += '<nav class="race-tabs" aria-label="場次">' + races.map(function (r) {
       return '<a href="#/meeting/' + id + "/" + r.race_no + '"' + (r.race_no === rn ? ' aria-current="true"' : "") + ">" + r.race_no + "<small>" + hhmm(r.post_time) + "</small></a>";

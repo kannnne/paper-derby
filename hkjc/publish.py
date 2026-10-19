@@ -525,6 +525,7 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
     return {"date": date, "venue": venue, "venue_zh": VENUE_ZH.get(venue, venue), "status": status,
             "generated_at": _now(), "odds_snapshot_at": snap, "model_version": model_version,
             "scores_run_id": s_run, "decisions_run_id": d_run,
+            "note": (RETRO_NOTE_ZH if str(d_run or s_run or "").startswith("retro-") else None),
             "races": out_races, "meeting_decisions": decisions.get(0, []), "bots": bot_list}
 
 
@@ -604,6 +605,10 @@ def _live_stats(conn, bot_ids):
 
 
 # ------------------------------------------------------------------ export
+RETRO_NOTE_ZH = ("⚠️ 賽後補做：系統喺呢個賽馬日之後先建成。評分同機械人決定只用前一日或之前嘅數據訓練嘅模型，"
+                 "但賠率用咗最終賠率（開跑前 2 小時嘅賠率已無法取得），結果會偏樂觀，只供參考。")
+
+
 def export_site(conn, out_dir=None, demo: bool = False) -> list[Path]:
     """Write index.json, meetings/*.json and bot_history.json under ``<out_dir>/data``.
     Returns the written paths.  ``out_dir`` defaults to the project's ``site/``.

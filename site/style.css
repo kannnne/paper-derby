@@ -526,3 +526,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* 賽後補做提示 */
+.retro-note{margin:8px 0;padding:8px 12px;border-left:4px solid #f5b301;background:rgba(245,179,1,.12);border-radius:6px;font-size:13px;line-height:1.5}
