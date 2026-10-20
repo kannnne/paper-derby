@@ -100,8 +100,8 @@
   function isPreview(m) { return !!(m && (m.preview || (m.picks && m.picks.preview))); }
   function previewBanner(m) {
     var ts = (m && (m.odds_snapshot_at || m.preview_at || (m.picks && m.picks.preview_at))) || "";
-    return '<div class="pv-banner" role="note"><span class="pv-chip">預覽</span><span><b>預覽（未落注）</b>：用 ' +
-      esc(hhmm(ts)) + " 嘅賠率計，賠率會變，機械人喺第一場開跑前約 2 小時先正式落注。</span></div>";
+    return '<div class="pv-mini" role="note"><span class="pv-chip">預覽</span><span class="muted small">更新 ' +
+      esc(String(ts).replace("T", " ").slice(0, 16)) + "</span></div>";
   }
   function meetingName(m) { return dateZh(m.date) + " " + esc(m.venue_zh || VENUE_ZH[m.venue] || m.venue); }
 
@@ -333,7 +333,6 @@
             botToken(b, "xs") + "<span>" + esc(b.name) + "</span><small>" + (t ? t + " 張" : "唔買") + "</small></button>";
         }).join("") + "</div>";
         html += robotCard(sel, by[sel.id], m);
-        html += '<p class="small muted">' + (m.preview ? "預覽：用最新賠率計機械人如果而家落注會買乜，未落注、唔計入資金同排行榜。" : "") + "模擬研究，非投注建議。</p>";
         el.innerHTML = html;
         el.querySelectorAll(".hr-bot").forEach(function (b) {
           b.addEventListener("click", function () {
@@ -624,11 +623,8 @@
       '<div class="pk-total"><small>合共注碼</small><b class="num">' + money(ok(p.total_stake) ? p.total_stake : 0, 0) + "</b><small>（模擬）</small></div></header>";
     html += '<div class="pk-sum"><span class="pk-count"><b class="num">' + esc(nItems) + "</b> 項精選</span>" +
       '<span class="pk-count"><b class="num">' + esc(nStar) + "</b> 項 ⭐ 值博</span>" +
-      (p.odds_note ? '<span class="pk-sum-i">' + esc(p.odds_note) + "</span>" : "") +
-      (p.generated_at ? '<span class="pk-sum-i muted">生成 ' + esc(String(p.generated_at).replace("T", " ").slice(0, 16)) + "</span>" : "") + "</div>";
-    if (isPreview(m)) html += previewBanner(m);
-    html += '<p class="pk-legend small">' + esc(p.legend || "⭐ = 分析估計長期有賺；其他係該玩法當日最好嘅選擇，未必值博") + "</p>";
-    if (p.method_note) html += reasonBlock(p.method_note, "pk-method small muted");
+      (isPreview(m) ? '<span class="pv-chip">預覽</span>' : "") +
+      (p.generated_at ? '<span class="pk-sum-i muted">更新 ' + esc(String(p.generated_at).replace("T", " ").slice(0, 16)) + "</span>" : "") + "</div>";
     if (settled) {
       html += '<div class="pk-final"><span>全日結算</span><span>派彩 <b class=num>' + money(p.total_payout, 2) + "</b></span>" + plSpan(p.total_profit) +
         (all.length ? '<span class="small muted">中 ' + all.filter(function (x) { return x.result && x.result.hit === true; }).length + " / " + all.length + " 項</span>" : "") + "</div>";
@@ -668,8 +664,6 @@
       (settled ? "<span>派彩 " + money(p.total_payout, 2) + " · " + plSpan(p.total_profit) + "</span>" : "") +
       '<span class="pk-disc">模擬研究，非投注建議</span>' +
       (home ? '<a class="hs-link" href="#/meeting/' + meetingId(m) + '">完整賽馬日頁 →</a>' : "") + "</footer>";
-    html += '<p class="pk-note small muted">命中機率同派彩由模型估計。中晒約派 = 所有關／所有選擇都中嘅派彩（例如 6x63 六關全部入三甲）；中晒回報 =（中晒約派 − 成本）÷ 成本。⭐ 值博 = 分析計埋中唔中之後長期估計有賺。' +
-      "每種玩法都有精選唔代表值得買：大部分玩法長期都蝕緊抽水。膽 = 一定要跑入，腳 = 配搭。博彩要有節制。</p>";
     return html + "</article>";
   }
 
@@ -1193,7 +1187,7 @@
     var tot = bots.reduce(function (a, b) { a.s += b.stake || 0; a.n += (b.tickets || []).length; return a; }, { s: 0, n: 0 });
     if (m.preview) {
       html += previewBanner(m);
-      html += '<p class="small muted rb-sum">預覽：' + bots.length + " 隻機械人如果而家落注，合共 " + tot.n + " 張單、注碼 " + money(tot.s) + "（未落注，唔計入資金同排行榜）。模擬研究，非投注建議。</p>";
+      html += '<p class="small muted rb-sum">' + bots.length + " 隻機械人 · 合共 " + tot.n + " 張單 · 注碼 " + money(tot.s) + "</p>";
     } else
     html += '<p class="small muted rb-sum">' + bots.length + ' 隻機械人合共 ' + tot.n + " 張單、注碼 " + money(tot.s) + "（模擬，每隻獨立資金）。模擬研究，非投注建議。</p>";
     html += '<div class="rb-grid">' + list.map(function (info) { return robotCard(info, by[info.id], m); }).join("") + "</div></section>";
