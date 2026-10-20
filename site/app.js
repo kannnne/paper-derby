@@ -312,7 +312,7 @@
     function setSub(t) { if (sub) { sub.setAttribute("data-robots", t); if (!document.getElementById("home-robots").hidden) sub.textContent = t; } }
     if (!mtg) {
       setSub("");
-      el.innerHTML = '<div class="panel pad">未有機械人決定。馬會開售賠率之後會出預覽，第一場開跑前約 2 小時正式落注。</div>';
+      el.innerHTML = '<div class="panel pad">未有機械人決定。馬會開售賠率之後就會出預覽，之後每小時更新。</div>';
       return;
     }
     loadMeeting(meetingId(mtg)).then(function (m) {
@@ -379,7 +379,7 @@
       if (sub) { sub.setAttribute("data-picks", pkSub); if (!document.getElementById("home-picks").hidden) sub.textContent = pkSub; }
       var html = picksCard(m, true);
       if (!isNext && nm) html += '<p class="small muted hs-note">下一個賽馬日（' + shortDate(nm.date) + " " + esc(nm.venue_zh || VENUE_ZH[nm.venue] || nm.venue) +
-        "）嘅精選會喺第一場開跑前約 2 小時" + preRaceEta(nm) + "自動出。</p>";
+        "）嘅精選會喺馬會開售賠率之後自動出（預覽），之後每小時更新。</p>";
       el.innerHTML = html;
     }).catch(function () {
       if (!document.body.contains(el)) return;
@@ -1183,7 +1183,7 @@
     var settled = m.status === "results";
     var html = '<section class="section" aria-labelledby="rb-h"><div class="section-head"><span class="kicker">ROBOTS</span><h2 id="rb-h">機械人當日落單</h2>' +
       '<span class="muted small">每隻機械人成日所有注項（單場同過關）擺埋一齊' + (settled ? "，已按賽果結算" : "") + "</span></div>";
-    if (!hasAny) return html + '<div class="panel empty">未有機械人決定（通常喺第一場開跑前約 2 小時出）。</div></section>';
+    if (!hasAny) return html + '<div class="panel empty">未有機械人決定（馬會開售賠率之後就會出預覽）。</div></section>';
     var tot = bots.reduce(function (a, b) { a.s += b.stake || 0; a.n += (b.tickets || []).length; return a; }, { s: 0, n: 0 });
     if (m.preview) {
       html += previewBanner(m);
@@ -1456,7 +1456,7 @@
       "<li>數據：公開嘅歷屆賽果、派彩、排位表，同賽前公開賠率（開售後）。</li>" +
       "<li>模型：按每場比賽估計每匹馬嘅勝出率（勝）同入三甲機率（入三甲）；每場勝出率加埋等於 100%。</li>" +
       "<li>防止偷看未來：所有特徵只用該場之前嘅資料，模型每次只用預測日之前嘅數據訓練。</li>" +
-      "<li>馬會一開售賠率就計評分，之後大約每小時更新；第一場開跑前約 2 小時出今日精選，" + (idx.bots || []).length + " 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
+      "<li>馬會一開售賠率就出評分、今日精選同機械人預覽，之後大約每小時更新；第一場開跑前約 2 小時機械人正式落注，" + (idx.bots || []).length + " 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
       "<li>彩池抽水大約 17.5%–25%，過關每一關都要扣；長遠嚟講大部分玩法都係蝕錢。</li></ul>";
     html += "<h2>" + (idx.bots || []).length + " 隻機械人</h2><ul>" + (idx.bots || []).map(function (b) {
       return '<li><a href="#/bot/' + esc(b.id) + '">' + b.no + " 號 " + esc(b.name) + "</a>（" + esc(b.style) + "）：" + esc(b.description) + "</li>";
