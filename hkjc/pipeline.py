@@ -152,6 +152,37 @@ def _make_picks(conn, run_id, date, venue, pred, odds):
         return None
 
 
+# ------------------------------------------------------------- preview scores
+def preview_scores(conn, run_id, date, venue) -> int:
+    """賠率一開售就出評分（唔落注、唔出精選）：racecard + latest odds -> predictions +
+    horse_scores under ``run_id`` (kind 'pre_scores').  Older preview runs of the same
+    meeting are deleted so the DB / git history doesn't grow every refresh.
+    Returns the number of horses scored."""
+    odds = latest_odds(conn, date, venue)
+    pred = model.predict_card(conn, date, venue, kind="combined", odds=odds or None)
+    if pred.empty:
+        return 0
+    card = pd.read_sql_query("SELECT race_no, horse_no, scratched FROM racecard WHERE date=? AND venue=?",
+                             conn, params=(date, venue))
+    pred = pred.merge(card, on=["race_no", "horse_no"], how="left")
+    pred = pred[pred["scratched"].fillna(0) == 0].copy()
+    now = datetime.now().isoformat(timespec="seconds")
+    conn.executemany(
+        "INSERT OR REPLACE INTO predictions (run_id, race_id, horse_no, p_win, p_place, model_version, created_at) "
+        "VALUES (?,?,?,?,?,?,?)",
+        [(run_id, r.race_id, int(r.horse_no), float(r.p_win), float(r.p_place), r.model_version, now)
+         for r in pred.itertuples()])
+    sc = scores.score_meeting(conn, date, venue, pred_df=pred, odds=odds or None)
+    scores.save_scores(conn, run_id, sc)
+    old = [r[0] for r in conn.execute("SELECT run_id FROM runs WHERE kind='pre_scores' AND date=? AND venue=? "
+                                      "AND run_id!=?", (date, venue, run_id))]
+    for rid in old:
+        for t in ("horse_scores", "predictions", "runs"):
+            conn.execute(f"DELETE FROM {t} WHERE run_id=?", (rid,))
+    conn.commit()
+    return len(sc)
+
+
 # ---------------------------------------------------------------------- pre-meeting
 def pre_meeting(conn, run_id, date, venue, config=None, place_bets=True) -> dict:
     """place_bets=False (scheduler woke up too late, < 15 min before race 1): the

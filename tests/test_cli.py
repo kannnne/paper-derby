@@ -325,3 +325,40 @@ def test_publish_failure_never_breaks_post(conn, clock, monkeypatch):
     clock("2026-10-19 13:30")
     assert cli.cmd_post(conn, "2026-10-19").exists()
     assert cli._run_exists(conn, "post_analysis", "2026-10-19", "HV")
+
+
+def test_tick_runs_scores_preview_before_bet_window(tmp_path, monkeypatch):
+    """Odds on sale but > 2h before race 1: tick refreshes scores (no bets), about hourly."""
+    from datetime import datetime
+    from hkjc import cli
+    from hkjc.db import connect
+
+    conn = connect(tmp_path / "t.db")
+    mtg = {"date": "2026-10-21", "venue": "HV", "first_post_time": "2026-10-21T18:40", "n_races": 9}
+    calls = []
+
+    def fake_scores(c, mtg=None, force=False):
+        calls.append(mtg["date"])
+        cli._record_run(c, f"score-x{len(calls)}", "pre_scores", mtg["date"], mtg["venue"], {})
+        return 100
+
+    monkeypatch.setattr(cli, "_next_meeting", lambda c, now: mtg)
+    monkeypatch.setattr(cli, "cmd_scores", fake_scores)
+    monkeypatch.setattr(cli, "cmd_pre", lambda *a, **k: calls.append("pre"))
+    clock = {"t": datetime(2026, 10, 20, 12, 0)}
+    monkeypatch.setattr(cli, "now_hkt", lambda: clock["t"])
+    cli.cmd_tick(conn)
+    assert calls == ["2026-10-21"]
+    clock["t"] = datetime(2026, 10, 20, 12, 30)      # < 55 min later: no refresh
+    cli.cmd_tick(conn)
+    assert calls == ["2026-10-21"]
+    clock["t"] = datetime(2026, 10, 20, 13, 1)
+    cli.cmd_tick(conn)
+    assert calls == ["2026-10-21", "2026-10-21"]
+    clock["t"] = datetime(2026, 10, 21, 16, 45)      # inside the 2h window: the betting run, not a preview
+    cli.cmd_tick(conn)
+    assert calls[-1] == "pre"
+    clock["t"] = datetime(2026, 10, 15, 12, 0)       # meeting > 3 days away: nothing
+    calls.clear()
+    cli.cmd_tick(conn)
+    assert calls == []

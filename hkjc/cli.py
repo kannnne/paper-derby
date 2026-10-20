@@ -28,6 +28,8 @@ PRE_LATEST = timedelta(minutes=15)   # 錯過咗都最遲開跑前 15 分鐘補�
 POST_DELAY = timedelta(minutes=45)   # 最後一場開跑後 45 分鐘先抓賽果
 POST_LOOKBACK_DAYS = 7               # tick 只會自動重試最近 7 日未完成嘅賽馬日
 NO_RESULTS_GIVE_UP_DAYS = 2          # 賽馬日過咗 2 日都完全冇賽果頁 -> 當取消 (abandoned)
+SCORES_REFRESH = timedelta(minutes=55)    # 賠率開售後、落注前：大約每小時用最新賠率更新評分
+SCORES_HORIZON = timedelta(days=3)         # 只為 3 日內嘅賽馬日出預覽評分
 NEXT_MEETING_CACHE = timedelta(hours=1)   # 下一個賽馬日資料每小時先上網更新一次
 LOCK_NAME = "hkjc.lock"
 
@@ -111,6 +113,36 @@ def cmd_pre(conn, force=False, mtg=None, place_bets=True):
     log.info("pre report written: %s", path)
     _publish(conn, f"賽前 {date} {venue}")
     return path
+
+
+def cmd_scores(conn, mtg=None, force=False):
+    """賠率開售就出評分（唔落注）：WIN/PLA 賠率快照 -> 預測 -> 評分 -> 更新網站。
+    冇賠率（未開售）就乜都唔做。Returns number of horses scored (0 = nothing done)."""
+    from . import odds, pipeline, scrape
+
+    if mtg is None:
+        mtg = scrape.next_meeting(conn)
+    if not mtg:
+        return 0
+    date, venue = mtg["date"], mtg["venue"]
+    if not force and (_run_exists(conn, "pre_bet", date, venue) or _run_exists(conn, "pre_report", date, venue)):
+        return 0
+    stamp = now_hkt().strftime("%Y-%m-%dT%H:%M:%S")
+    n = odds.snapshot_meeting(conn, date, venue, pools=("WIN", "PLA"), snapshot_at=stamp)
+    if not n:
+        log.info("scores preview: odds for %s %s not on sale yet", date, venue)
+        return 0
+    # keep only the newest WIN/PLA preview snapshot of this meeting (no tickets depend on them)
+    conn.execute("DELETE FROM odds_snapshots WHERE date=? AND venue=? AND pool IN ('WIN','PLA') AND snapshot_at<?",
+                 (date, venue, stamp))
+    conn.commit()
+    scrape.scrape_racecard(conn, date, venue, refresh=True)
+    run_id = f"score-{date}-{venue}-{now_hkt():%H%M}"
+    k = pipeline.preview_scores(conn, run_id, date, venue)
+    _record_run(conn, run_id, "pre_scores", date, venue, {"odds_rows": n, "horses": k})
+    log.info("scores preview %s %s: %s horses scored with live odds", date, venue, k)
+    _publish(conn, f"評分更新 {date} {venue}")
+    return k
 
 
 # --------------------------------------------------------------- post-race
@@ -226,6 +258,15 @@ def cmd_tick(conn):
              "done" if done else f"due {first - PRE_LEAD:%Y-%m-%d %H:%M}")
     if done:
         return
+    if now < first - PRE_LEAD and first - now <= SCORES_HORIZON:
+        last = conn.execute("SELECT MAX(created_at) FROM runs WHERE kind='pre_scores' AND date=? AND venue=?",
+                            (d, v)).fetchone()[0]
+        if not last or _parse_ts(last) <= now - SCORES_REFRESH:
+            try:
+                cmd_scores(conn, mtg=mtg)
+            except Exception:
+                log.exception("tick: scores preview for %s %s failed (will retry next tick)", d, v)
+        return
     try:
         if first - PRE_LEAD <= now <= first - PRE_LATEST:
             if now > first - PRE_LEAD + timedelta(minutes=20):
@@ -250,6 +291,7 @@ def main(argv=None):
     b = sub.add_parser("backfill"); b.add_argument("start"); b.add_argument("end")
     p = sub.add_parser("post"); p.add_argument("date", nargs="?")
     q = sub.add_parser("pre"); q.add_argument("--force", action="store_true")
+    sub.add_parser("scores")
     sub.add_parser("tick")
     t = sub.add_parser("backtest"); t.add_argument("start", nargs="?"); t.add_argument("end", nargs="?")
     sub.add_parser("report")
@@ -274,6 +316,8 @@ def main(argv=None):
             scrape.backfill(conn, args.start, args.end)
         elif args.cmd == "post":
             print(cmd_post(conn, args.date))
+        elif args.cmd == "scores":
+            print(cmd_scores(conn, force=True))
         elif args.cmd == "pre":
             print(cmd_pre(conn, force=args.force))
         elif args.cmd == "tick":

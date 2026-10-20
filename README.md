@@ -193,6 +193,7 @@ cd "<項目資料夾>"
 ## 雲端 24/7 運行（GitHub Actions，現行方式）
 
 - Repo：`kannnne/paper-derby`（公開）。公開網站：https://kannnne.github.io/paper-derby/
+- **評分**：馬會一開售賠率（通常賽前一日）就計評分並更新網站，之後大約每小時用最新賠率重計，直到開跑前 2 小時嘅正式賽前流程（落模擬注、出今日精選）。手動：`python -m hkjc scores`。
 - `.github/workflows/race-bot.yml` 每 30 分鐘（香港時間 08:00–01:59）喺 GitHub 伺服器跑一次 `python -m hkjc tick`，自動做賽前（第一場前 2 小時）同賽後（最後一場後約 45 分鐘）流程，然後 commit 數據並重新發佈網站。關機都照跑。
 - 資料庫以文字形式存喺 `data/db/*.sql`（每次運行前還原、運行後匯出）；模型每次喺雲端重新訓練，唔存入 git。
 - 手動觸發：GitHub → Actions → race-bot → Run workflow（command 可填 `tick` / `probe` / `report`）。

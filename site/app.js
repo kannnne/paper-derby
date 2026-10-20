@@ -214,9 +214,9 @@
   }
   function nextScoresNote(idx) {
     var nm = idx.next_meeting;
-    if (!nm) return "評分會喺下一個賽馬日第一場開跑前約 2 小時自動出。";
-    return "下一個賽馬日（" + shortDate(nm.date) + " " + esc(nm.venue_zh || VENUE_ZH[nm.venue] || nm.venue) + "）嘅評分會喺第一場開跑前約 2 小時" +
-      preRaceEta(nm) + "自動出。";
+    if (!nm) return "評分會喺馬會開售賠率之後自動出，之後大約每小時更新。";
+    return "下一個賽馬日（" + shortDate(nm.date) + " " + esc(nm.venue_zh || VENUE_ZH[nm.venue] || nm.venue) +
+      "）嘅評分會喺馬會開售賠率之後自動出（通常賽前一日），之後大約每小時用最新賠率更新。";
   }
 
   function pageHome() {
@@ -1347,7 +1347,7 @@
       "<li>數據：公開嘅歷屆賽果、派彩、排位表，同賽前公開賠率（開售後）。</li>" +
       "<li>模型：按每場比賽估計每匹馬嘅勝出率（勝）同入三甲機率（入三甲）；每場勝出率加埋等於 100%。</li>" +
       "<li>防止偷看未來：所有特徵只用該場之前嘅資料，模型每次只用預測日之前嘅數據訓練。</li>" +
-      "<li>賽前約 2 小時攞賠率、計評分，" + (idx.bots || []).length + " 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
+      "<li>馬會一開售賠率就計評分，之後大約每小時更新；第一場開跑前約 2 小時出今日精選，" + (idx.bots || []).length + " 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
       "<li>彩池抽水大約 17.5%–25%，過關每一關都要扣；長遠嚟講大部分玩法都係蝕錢。</li></ul>";
     html += "<h2>" + (idx.bots || []).length + " 隻機械人</h2><ul>" + (idx.bots || []).map(function (b) {
       return '<li><a href="#/bot/' + esc(b.id) + '">' + b.no + " 號 " + esc(b.name) + "</a>（" + esc(b.style) + "）：" + esc(b.description) + "</li>";
