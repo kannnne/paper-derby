@@ -64,6 +64,7 @@ optimistic.  Model probabilities are walk-forward (trained only on earlier meeti
 """
 from __future__ import annotations
 
+import itertools
 import json
 import logging
 from datetime import datetime
@@ -642,10 +643,59 @@ def enumerate_candidates(pred_df, odds=None, cfg=None):
     cands += _fixed_candidates(races, cfg)
     for c in cands:
         _adjust(c, cfg)
+        c["max_return"] = _max_return(c, races)
     live_pools = sorted({p for r in races.values() for p, b in r.live.items() if b})
     has_market = any(r.est.mkt is not None for r in races.values())
     return cands, {"races": races, "has_odds": bool(live_pools) or has_market, "live_pools": live_pools,
                    "has_live": bool(live_pools)}
+
+
+_ALL_HIT_POOLS = ("PLA", "QPL")    # several combinations of one leg can all pay at once
+
+
+def _leg_factor(race, leg):
+    """Payout per $1 unit for one leg when it fully hits: PLA/QPL = every selected
+    combination pays (all horses / pairs in the places); exclusive pools (WIN, QIN, TRI ...)
+    pay exactly one combination - its typical (mean) estimated dividend."""
+    pool = leg["pool"]
+    combos = st.leg_combos(leg)
+    ds = [race.div(pool, x)[0] for x in combos]
+    if not ds or any(d is None for d in ds):
+        return None
+    if pool not in _ALL_HIT_POOLS:
+        return sum(ds) / len(ds) / 10.0
+    # at most 3 horses place: best set of <=3 selected horses, counting the combinations inside it
+    div = dict(zip(combos, ds))
+    horses = sorted({int(h) for c in combos for h in str(c).split(",")})
+    best = 0.0
+    for trio in itertools.combinations(horses, min(3, len(horses))):
+        t = set(trio)
+        best = max(best, sum(d for c, d in div.items() if {int(h) for h in str(c).split(",")} <= t))
+    return best / 10.0
+
+
+def _max_return(c, races):
+    """「中晒」 payout: every leg / selection hits (e.g. 6x63 with all 6 horses placed =
+    the 63 units' total).  Exclusive single-race pools fall back to est_return_if_hit."""
+    try:
+        unit = float(c["unit_stake"])
+        if c["kind"] == "allup":
+            f = [_leg_factor(races[int(l["race_no"])], l) for l in c["legs"]]
+            if any(x is None for x in f):
+                return None
+            total = 0.0
+            for sub in bets.allup_subsets(len(f), c["spec"]):
+                prod = 1.0
+                for i in sub:
+                    prod *= f[i]
+                total += prod
+            return round(unit * total, 2)
+        if c["kind"] == "single" and c["pool"] in _ALL_HIT_POOLS:
+            f = _leg_factor(races[int(c["legs"][0]["race_no"])], c["legs"][0])
+            return None if f is None else round(unit * f * (1 if c["pool"] == "PLA" else 1), 2)
+    except Exception:          # never let a display figure break the picks
+        return c.get("est_return_if_hit")
+    return c.get("est_return_if_hit")
 
 
 def _adjust(c, cfg):
@@ -774,12 +824,19 @@ def _where(c):
     return f"{c['structure_zh']}（{len(c['legs'])} 關，中 {c['kmin']} 關或以上有派彩）"
 
 
+def _hit_txt(c) -> str:
+    """「中晒約派 $X（中晒回報 +Y%）」: X = payout when every leg / selection hits,
+    Y = (X − 注碼) ÷ 注碼.  Shown instead of the long-run average."""
+    r = c.get("max_return") or c.get("est_return_if_hit")
+    stake = c.get("stake")
+    if not r or not stake:
+        return ""
+    return f"，中晒約派 {_money(r)}（中晒回報 {_roi(r / stake - 1)}）"
+
+
 def _reason(c, races, grade, cfg):
-    txt = (f"{_where(c)}：{_sel_txt(c, races)}，共 {c['n_combos']} 注 {_money(c['stake'])}，"
-           f"預計命中 {_pc(c['hit_prob'])}，估計回報 {_roi(c['exp_roi'])}（{SRC_ZH[c['odds_source']]}）")
-    if c.get("est_return_if_hit"):
-        txt += f"，中咗平均派約 {_money(c['est_return_if_hit'])}"
-    return txt
+    return (f"{_where(c)}：{_sel_txt(c, races)}，共 {c['n_combos']} 注 {_money(c['stake'])}，"
+            f"預計命中 {_pc(c['hit_prob'])}{_hit_txt(c)}（{SRC_ZH[c['odds_source']]}）")
 
 
 def _item(c, rank, grade, races, info, post, cfg):
@@ -807,6 +864,7 @@ def _item(c, rank, grade, races, info, post, cfg):
           "unit_stake": c["unit_stake"], "stake": c["stake"], "hit_prob": round(c["hit_prob"], 4),
           "exp_roi": round(c["exp_roi"], 4),
           "est_return_if_hit": None if c["est_return_if_hit"] is None else round(c["est_return_if_hit"], 2),
+          "max_return": None if c.get("max_return") is None else round(c["max_return"], 2),
           "odds_source": SRC_ZH[c["odds_source"]], "grade": grade, "reason": _reason(c, races, grade, cfg),
           "result": None, "family": c["family"], "spec": c.get("spec"), "key": c["key"]}
     it["ticket"] = item_ticket({**it, "legs_raw": c["legs"]})
@@ -963,7 +1021,7 @@ def _fixed_reason(c, races):
     what = ("用戶原本固定玩法：模型最有信心（入三甲機率最高）嘅 6 場每場 1 隻" if c["family"] == "PLA_6x63"
             else "用戶原本固定玩法：每場頭 3 選（入三甲機率）做位置Q，2 場一條")
     return (f"{what}：" + "；".join(legs) + f"，{c['spec']} 共 {c['n_combos']} 注 {_money(c['stake'])}，"
-            f"中 {c['kmin']} 關或以上有派彩，預計命中 {_pc(c['hit_prob'])}，估計回報 {_roi(c['exp_roi'])}"
+            f"中 {c['kmin']} 關或以上有派彩，預計命中 {_pc(c['hit_prob'])}{_hit_txt(c)}"
             f"（{SRC_ZH[c['odds_source']]}）")
 
 
@@ -976,7 +1034,7 @@ def _section_item(sec, c, rank, races, info, post, cfg):
         it["pool_zh"] = "位置過關" if sec == "PLA_6x63" else "位置Q過關"
     th = cfg["thresholds"].get(c["family"])
     if star:
-        tail = f"。⭐ 值博：估計回報 ≥ {_roi(th['tau'])} 而且預計命中 ≥ {_pc(th['h'])}（門檻用 2024-25 季歷史數據定）"
+        tail = f"。⭐ 值博：分析計埋中唔中之後估計長期有賺，而且預計命中 ≥ {_pc(th["h"])}（門檻用 2024-25 季歷史數據定）"
     elif sec in FIXED_SECTIONS:
         tail = "。（固定玩法，照用戶原本規則；唔係值博評級）"
     elif c.get("below_min_hit"):
@@ -1021,9 +1079,9 @@ def make_picks(pred_df, odds=None, cfg=None) -> dict:
     have = {it["section"] for it in items}
     missing = [zh for code, zh in SECTIONS if code not in have]
     method = ("每種玩法各揀一個：由模型機率逐場比較每個玩法嘅各種結構（單注、複式、膽拖、定位），"
-              "喺預計命中唔太低嘅組合入面揀估計回報最高嗰個（獨贏、位置各揀 2 個）；"
+              "喺預計命中唔太低嘅組合入面揀長期平均回報最高嗰個（獨贏、位置各揀 2 個）；"
               "「位置過關 6x63」同「位置Q 2x3 ×3 條」照用戶原本規則。"
-              "⭐ 值博 = 估計回報同預計命中都過 2024-25 季歷史數據定嘅門檻；其他係該玩法當日最好嘅選擇，未必值博。"
+              "⭐ 值博 = 長期平均回報同預計命中都過 2024-25 季歷史數據定嘅門檻；其他係該玩法當日最好嘅選擇，未必值博。"
               "模擬研究，非投注建議。")
     if missing:
         method += "今日冇：" + "、".join(missing) + "（場次唔夠／出賽馬匹太少／冇賠率估唔到）。"
@@ -1031,7 +1089,7 @@ def make_picks(pred_df, odds=None, cfg=None) -> dict:
         method = "今日冇可以計算嘅玩法（未有賠率或者模型預測）。" + method
     return {"title": TITLE, "generated_at": datetime.now(HKT).replace(tzinfo=None).isoformat(timespec="seconds"),
             "method_note": method, "odds_note": _odds_note(ctx),
-            "legend": "⭐ = 分析估計回報過門檻；其他係該玩法當日最好嘅選擇，未必值博",
+            "legend": "⭐ = 分析估計長期有賺；其他係該玩法當日最好嘅選擇，未必值博",
             "sections": [{"section": code, "section_zh": zh} for code, zh in SECTIONS if code in have],
             "total_stake": round(sum(it["stake"] for it in items), 2), "n_items": len(items),
             "n_star": sum(1 for it in items if it["star"]),
@@ -1181,12 +1239,12 @@ def picks_md(picks) -> str:
     if not picks:
         return "## 今日精選\n_(未有精選：模型未有預測)_\n"
     out = ["## 今日精選", "", f"_{picks.get('method_note') or ''}_", "", f"{picks.get('odds_note') or ''}", "",
-           f"_{picks.get('legend') or '⭐ = 分析估計回報過門檻；其他係該玩法當日最好嘅選擇，未必值博'}_", ""]
+           f"_{picks.get('legend') or '⭐ = 分析估計長期有賺；其他係該玩法當日最好嘅選擇，未必值博'}_", ""]
     items = picks.get("items") or []
     if not items:
         out += ["**今日冇精選**", ""]
     else:
-        out += ["| # | 玩法 | 值博 | 場次 | 結構 | 選擇 | 注數 | 注碼 | 預計命中 | 估計回報 | 賠率 | 結果 |",
+        out += ["| # | 玩法 | 值博 | 場次 | 結構 | 選擇 | 注數 | 注碼 | 預計命中 | 長期平均回報 | 賠率 | 結果 |",
                 "|---:|---|:---:|---|---|---|---:|---:|---:|---:|---|---|"]
         for it in items:
             legs = []

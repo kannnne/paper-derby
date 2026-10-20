@@ -213,7 +213,7 @@ def test_make_picks_sections_and_fixed_products():
         assert it["grade"] == "精選" and it["section_zh"] == picks.SECTION_ZH[it["section"]]
         assert it["star"] == picks.passes({**it, "family": it["family"]}, picks._cfg())
         assert ("⭐ 值博" in it["reason"]) == it["star"]
-        assert "預計命中" in it["reason"] and "估計回報" in it["reason"] and "上名率" not in it["reason"]
+        assert "預計命中" in it["reason"] and "中晒回報" in it["reason"] and "上名率" not in it["reason"]
         if it["section"] not in picks.FIXED_SECTIONS:
             assert it["stake"] <= 300
         assert it["ticket"]["notes"]["section"] == it["section"]
@@ -405,3 +405,30 @@ def test_thin_live_exotic_odds_clipped_to_market_estimate():
     assert est < 3000
     assert r.div("FCT", "1,2") == (pytest.approx(picks.EXOTIC_LIVE_MAX_RATIO * est), "live")
     assert r.div("FCT", "2,1") == (50.0, "live")                     # below the clip: live price as is
+
+
+def test_max_return_all_hit_formulas():
+    """中晒約派: 6x63 all six legs placed = unit × (Π(1+d_i/10) − 1); QPL banker legs count only
+    the pairs that can pay together (at most 3 horses place)."""
+    from hkjc import picks as P
+
+    class R:
+        def __init__(self, divs):
+            self.divs = divs
+
+        def div(self, pool, combo):
+            return self.divs.get((pool, combo)), "live"
+
+    d = [17.5, 22.5, 13.5, 60.0, 12.0, 30.0]
+    races = {i + 1: R({("PLA", str(h)): d[i] for h in range(1, 15)}) for i in range(6)}
+    c = {"kind": "allup", "unit_stake": 10.0, "spec": "6x63", "stake": 630.0,
+         "legs": [{"race_no": i + 1, "pool": "PLA", "selections": [3]} for i in range(6)]}
+    prod = 1.0
+    for x in d:
+        prod *= 1 + x / 10
+    assert P._max_return(c, races) == pytest.approx(10 * (prod - 1), abs=0.01)
+    # QPL 1 banker x 4 legs: at most 2 pairs (banker + 2 legs) can pay
+    divs = {("QPL", f"{min(1, h)},{max(1, h)}"): 10.0 * h for h in (2, 3, 4, 5)}
+    q = {"kind": "single", "pool": "QPL", "unit_stake": 10.0, "stake": 40.0, "est_return_if_hit": 1.0,
+         "legs": [{"race_no": 1, "pool": "QPL", "bankers": [1], "selections": [2, 3, 4, 5]}]}
+    assert P._max_return(q, {1: R(divs)}) == pytest.approx(10 * (5 + 4), abs=0.01)

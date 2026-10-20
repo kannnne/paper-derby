@@ -211,7 +211,8 @@ def _json(s, default):
 
 _TERMS = [(re.compile(r"(\d+)戰(\d+)上名"), r"\1戰\2次入三甲"), (re.compile("戰未上名"), "戰未入過三甲"),
           (re.compile("(近年|檔位)上名率"), r"\1入三甲率"), (re.compile("上名率"), "入三甲機率"),
-          (re.compile("上名機會"), "入三甲機會")]
+          (re.compile("上名機會"), "入三甲機會"), (re.compile(r"，?(估計回報|長期平均回報) [+−-]?[0-9.]+%"), ""), (re.compile("中咗約派"), "中晒約派"), (re.compile("中咗回報"), "中晒回報"),
+          (re.compile("分析估計回報過門檻"), "分析估計長期有賺")]
 
 
 def _terms(obj):

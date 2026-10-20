@@ -781,3 +781,9 @@ details.tk-why[open] > summary { display: none; }
 .picks.is-preview { outline: 1px dashed rgba(255, 200, 61, .55); outline-offset: -1px; }
 section > .pv-banner { margin-left: 0; margin-right: 0; }
 @media (max-width: 640px) { .pv-banner { margin-left: 12px; margin-right: 8px; } }
+
+/* ⭐ 值博 block at the top of 今日精選 */
+.pk-stars{border:2px solid #f5b301;border-radius:10px;background:rgba(245,179,1,.08);padding:6px 8px;margin:10px 0}
+.pk-stars .pk-sec-h .pk-star{font-size:15px}
+.pk-nostar{margin:6px 4px}
+.pk-others-h{margin:14px 4px 4px;font-weight:600}

@@ -577,7 +577,7 @@ def test_pre_report_picks_md(conn):
     pk, _ = _run_daily_picks(conn)
     md = pipeline._picks_md(pk)
     assert md.startswith("## 今日精選") and "| 1 | 獨贏 |" in md and "全日最穩" in md and "入三甲機率" in md
-    assert "⭐ = 分析估計回報過門檻" in md and "精選合共" in md
+    assert "⭐ = 分析估計長期有賺" in md and "精選合共" in md
     assert pipeline._picks_md(None).startswith("## 今日精選")
 
 

@@ -431,8 +431,13 @@
     var combos = ok(it.n_combos) ? it.n_combos + " 注 × " + money(it.unit_stake) : "";
     html += '<div class="pk-mo"><div class="pk-stake">' + (combos ? "<small>" + combos + " =</small>" : "") + '<b class="num">' + money(it.stake) + "</b></div>" +
       '<div class="pk-kv"><span>命中機率</span><b class="num">' + probTxt(it.hit_prob) + "</b></div>" +
-      '<div class="pk-kv"><span>預期回報</span>' + roiSpan(it.exp_roi) + "</div>" +
-      (ok(it.est_return_if_hit) && !res ? '<div class="pk-kv"><span>中咗約派</span><b class="num">' + money(it.est_return_if_hit, 0) + "</b></div>" : "");
+      (function () {
+        var full = ok(it.max_return) ? it.max_return : it.est_return_if_hit;
+        if (!ok(full) || res) return "";
+        return '<div class="pk-kv"><span title="所有關／所有選擇都中嘅派彩">中晒約派</span><b class="num">' + money(full, 0) + "</b></div>" +
+          (ok(it.stake) && it.stake > 0 ? '<div class="pk-kv"><span title="（中晒約派 − 成本）÷ 成本">中晒回報</span>' +
+            roiSpan(full / it.stake - 1) + "</div>" : "");
+      })();
     if (res && ok(res.payout)) {
       html += '<div class="pk-out">' + mark(res.hit, "中", "唔中") + "<span>派彩 <b class=num>" + money(res.payout) + "</b></span>" + plSpan(res.profit) + "</div>";
     } else if (res && res.hit !== undefined && res.hit !== null) {
@@ -506,7 +511,7 @@
       '<span class="pk-disc">模擬研究，非投注建議</span>' +
       (home ? '<a class="hs-link" href="#/meeting/' + meetingId(m) + '">完整賽馬日頁 →</a>' : "") + "</footer>";
     html += '<p class="pk-note small muted">' + (main.length && p.note ? esc(p.note) + " " : "") +
-      "命中機率同預期回報由模型估計；預期回報 = 估計派彩 ÷ 注碼 − 1，正數先值博。膽 = 一定要跑入，腳 = 配搭。博彩要有節制。</p>";
+      "命中機率同派彩由模型估計。中晒約派 = 所有關／所有選擇都中嘅派彩（例如 6x63 六關全部入三甲）；中晒回報 =（中晒約派 − 成本）÷ 成本。⭐ 值博 = 分析計埋中唔中之後長期估計有賺。膽 = 一定要跑入，腳 = 配搭。博彩要有節制。</p>";
     return html + "</article>";
   }
 
@@ -540,7 +545,7 @@
       (p.odds_note ? '<span class="pk-sum-i">' + esc(p.odds_note) + "</span>" : "") +
       (p.generated_at ? '<span class="pk-sum-i muted">生成 ' + esc(String(p.generated_at).replace("T", " ").slice(0, 16)) + "</span>" : "") + "</div>";
     if (isPreview(m)) html += previewBanner(m);
-    html += '<p class="pk-legend small">' + esc(p.legend || "⭐ = 分析估計回報過門檻；其他係該玩法當日最好嘅選擇，未必值博") + "</p>";
+    html += '<p class="pk-legend small">' + esc(p.legend || "⭐ = 分析估計長期有賺；其他係該玩法當日最好嘅選擇，未必值博") + "</p>";
     if (p.method_note) html += reasonBlock(p.method_note, "pk-method small muted");
     if (settled) {
       html += '<div class="pk-final"><span>全日結算</span><span>派彩 <b class=num>' + money(p.total_payout, 2) + "</b></span>" + plSpan(p.total_profit) +
@@ -549,13 +554,26 @@
     if (!all.length) {
       html += '<div class="pk-none"><b>今日冇精選</b><span class="small muted">未有賠率或者模型預測，計唔到任何玩法。</span></div>';
     }
+    // ⭐ 值博 items first, in full, so nobody has to scroll / expand to find them
+    var starred = all.filter(function (x) { return x.star; }).sort(function (a, b) {
+      return String(a.post_time || "").localeCompare(String(b.post_time || "")) || (a.race_no || 0) - (b.race_no || 0);
+    });
+    if (all.length) {
+      html += '<section class="pk-sec pk-stars" aria-label="⭐ 值博">' +
+        '<h3 class="pk-sec-h"><span class="pk-star">⭐ 值博</span><small class="num">' + starred.length + " 項 · " +
+        money(starred.reduce(function (a, x) { return a + (ok(x.stake) ? +x.stake : 0); }, 0), 0) + "</small></h3>" +
+        (starred.length ? '<ol class="pk-items">' + starred.map(function (it) { return pkItem(it, m, look); }).join("") + "</ol>"
+          : '<p class="small muted pk-nostar">今日冇玩法過值博門檻；下面係每種玩法當日最好嘅選擇，只供參考。</p>') + "</section>";
+      if (starred.length) html += '<h3 class="pk-others-h small muted">其他玩法（每種玩法當日最好嘅選擇，未必值博）</h3>';
+    }
     order.forEach(function (k) {
-      var its = groups[k].slice().sort(function (a, b) { return (a.rank || 99) - (b.rank || 99); });
+      var its = groups[k].filter(function (x) { return !x.star; }).sort(function (a, b) { return (a.rank || 99) - (b.rank || 99); });
+      if (!its.length) return;
       var fam = SECTION_FAM[k] || poolFam(its[0]);
       var stake = its.reduce(function (a, x) { return a + (ok(x.stake) ? +x.stake : 0); }, 0);
       var done = its.every(function (x) { return x.result && ok(x.result.payout); });
       var pay = its.reduce(function (a, x) { return a + (x.result && ok(x.result.payout) ? +x.result.payout : 0); }, 0);
-      var stars = its.filter(function (x) { return x.star; }).length;
+      var stars = 0;
       html += '<section class="pk-sec fam-' + fam + '" aria-label="' + esc(its[0].section_zh || k) + '">' +
         '<h3 class="pk-sec-h"><span class="pk-pool fam-' + fam + '">' + esc(its[0].section_zh || poolName(its[0])) + "</span>" +
         '<small class="num">' + its.length + " 項 · " + money(stake, 0) + "</small>" +
@@ -568,7 +586,7 @@
       (settled ? "<span>派彩 " + money(p.total_payout, 2) + " · " + plSpan(p.total_profit) + "</span>" : "") +
       '<span class="pk-disc">模擬研究，非投注建議</span>' +
       (home ? '<a class="hs-link" href="#/meeting/' + meetingId(m) + '">完整賽馬日頁 →</a>' : "") + "</footer>";
-    html += '<p class="pk-note small muted">命中機率同預期回報由模型估計；預期回報 = 估計派彩 ÷ 注碼 − 1，正數先值博。' +
+    html += '<p class="pk-note small muted">命中機率同派彩由模型估計。中晒約派 = 所有關／所有選擇都中嘅派彩（例如 6x63 六關全部入三甲）；中晒回報 =（中晒約派 − 成本）÷ 成本。⭐ 值博 = 分析計埋中唔中之後長期估計有賺。' +
       "每種玩法都有精選唔代表值得買：大部分玩法長期都蝕緊抽水。膽 = 一定要跑入，腳 = 配搭。博彩要有節制。</p>";
     return html + "</article>";
   }
