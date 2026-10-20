@@ -88,6 +88,7 @@ MULTI_POOLS = ("DBL", "TBL")
 ALLUP_POOLS = ("WIN", "PLA", "QIN", "QPL")
 FAMILIES = SINGLE_POOLS + MULTI_POOLS + ("ALLUP",)
 CAPPED_LIVE = {"FCT", "TRI", "FF", "DBL"}          # live books trimmed at the 999 display cap
+EXOTIC_LIVE_MAX_RATIO = 3.0     # live exotic dividend used at most at 3x the WIN-pool market estimate
 MIN_FIELD = {"WIN": 4, "PLA": 4, "QIN": 4, "QPL": 7, "FCT": 4, "TCE": 4, "TRI": 5, "FF": 6, "QTT": 6}
 POOL_ZH = {"WIN": "獨贏", "PLA": "位置", "QIN": "連贏", "QPL": "位置Q", "FCT": "二重彩", "TRI": "單T",
            "TCE": "三重彩", "FF": "四連環", "QTT": "四重彩", "DBL": "孖寶", "TBL": "三寶"}
@@ -231,6 +232,7 @@ class Race:
         self.live = ctx.live or {}
         self.pw, self.pp = ctx.pw, ctx.pp
         self.est = st.DividendEstimator(ctx.df, self.live or None, cfg["calib"], cfg["lam2"], cfg["lam3"])
+        self.est_mkt = st.DividendEstimator(ctx.df, None, cfg["calib"], cfg["lam2"], cfg["lam3"])  # no live odds
         self.order_win = ctx.order_win
         self.order_place = ctx.order_place
         p, m2 = self.probs.p, self.probs.m2
@@ -260,12 +262,20 @@ class Race:
         book = self.live.get(pool) or {}
         o = book.get(combo)
         if o:
-            out = (max(st.MIN_DIVIDEND, float(o) * 10.0), "live")
+            d = max(st.MIN_DIVIDEND, float(o) * 10.0)
+            if pool in CAPPED_LIVE:
+                # exotic pools are thin hours before the race (e.g. FCT 4-9 at 497 while WIN 9 is 7.4 the
+                # day before): never trust a live exotic price above EXOTIC_LIVE_MAX_RATIO x the market
+                # estimate from the (much deeper) WIN pool
+                e = self.est_mkt(pool, combo) if self.est_mkt.mkt is not None else None
+                if e:
+                    d = min(d, EXOTIC_LIVE_MAX_RATIO * e)
+            out = (d, "live")
         else:
             d = self.est(pool, combo)
             if book and pool in CAPPED_LIVE:
                 floor = max(book.values()) * 10.0
-                d = floor if d is None else max(d, floor)
+                d = floor if d is None else max(d, min(floor, EXOTIC_LIVE_MAX_RATIO * d))
             out = (d, "est") if d is not None else (None, None)
         self._dm[k] = out
         return out
@@ -385,10 +395,13 @@ def _mr_div(pool, legs_races, combo, cfg, typ):
     """Estimated DBL/TBL dividend per $10 for winners (typ 1) / last-leg runner-up (typ 2)."""
     hs = [int(x) for x in combo.split("/")]
     last = legs_races[-1]
-    if typ == 1:
+    if typ == 1 and not cfg.get("_no_live"):
         o = (last.live.get(pool) or {}).get(combo)
         if o:
-            return max(st.MIN_DIVIDEND, float(o) * 10.0), "live"
+            live_d = max(st.MIN_DIVIDEND, float(o) * 10.0)
+            est_d, _s = _mr_div(pool, legs_races, combo, {**cfg, "_no_live": True}, 1) if not cfg.get("_no_live") \
+                else (None, None)
+            return (min(live_d, EXOTIC_LIVE_MAX_RATIO * est_d) if est_d else live_d), "live"
     pm = 1.0
     for race, h in zip(legs_races[:-1], hs[:-1]):
         x = race.mkt_win(h)
@@ -403,8 +416,8 @@ def _mr_div(pool, legs_races, combo, cfg, typ):
     a, b = cfg["mr_calib"].get((pool, typ), (0.0, 1.0))
     d = max(st.MIN_DIVIDEND, float(np.exp(a + b * np.log(raw))))
     book = last.live.get(pool) or {}
-    if typ == 1 and book and pool in CAPPED_LIVE:
-        d = max(d, max(book.values()) * 10.0)
+    if typ == 1 and book and pool in CAPPED_LIVE and not cfg.get("_no_live"):
+        d = max(d, min(max(book.values()) * 10.0, EXOTIC_LIVE_MAX_RATIO * d))
     return d, "est"
 
 

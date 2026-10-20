@@ -116,7 +116,9 @@ def cmd_pre(conn, force=False, mtg=None, place_bets=True):
 
 
 def cmd_scores(conn, mtg=None, force=False):
-    """賠率開售就出評分（唔落注）：WIN/PLA 賠率快照 -> 預測 -> 評分 -> 更新網站。
+    """賠率開售就出評分 + 機械人決定預覽（唔落注）：WIN/PLA/QIN/QPL（+ 二重彩/單T/四連環/孖寶）賠率快照 ->
+    預測 -> 評分 -> 預覽機械人決定同今日精選（bot_decisions ticket_id NULL / picks，run kind 'pre_scores'）
+    -> 更新網站。
     冇賠率（未開售）就乜都唔做。Returns number of horses scored (0 = nothing done)."""
     from . import odds, pipeline, scrape
 
@@ -128,14 +130,18 @@ def cmd_scores(conn, mtg=None, force=False):
     if not force and (_run_exists(conn, "pre_bet", date, venue) or _run_exists(conn, "pre_report", date, venue)):
         return 0
     stamp = now_hkt().strftime("%Y-%m-%dT%H:%M:%S")
-    n = odds.snapshot_meeting(conn, date, venue, pools=("WIN", "PLA"), snapshot_at=stamp)
+    n = odds.snapshot_meeting(conn, date, venue, pools=("WIN", "PLA", "QIN", "QPL"), snapshot_at=stamp)
     if not n:
         log.info("scores preview: odds for %s %s not on sale yet", date, venue)
         return 0
-    # keep only the newest WIN/PLA preview snapshot of this meeting (no tickets depend on them)
-    conn.execute("DELETE FROM odds_snapshots WHERE date=? AND venue=? AND pool IN ('WIN','PLA') AND snapshot_at<?",
-                 (date, venue, stamp))
-    conn.commit()
+    try:     # FCT / TRI / FF / DBL for the 今日精選 preview (optional)
+        n += odds.snapshot_meeting(conn, date, venue, pools=odds.EXOTIC_POOLS, snapshot_at=stamp) or 0
+    except Exception as e:
+        log.warning("preview exotic odds snapshot failed (%s)", e)
+    # keep only the newest preview snapshot of this meeting (no tickets depend on them before the betting run)
+    if not (_run_exists(conn, "pre_bet", date, venue) or _run_exists(conn, "pre_report", date, venue)):
+        conn.execute("DELETE FROM odds_snapshots WHERE date=? AND venue=? AND snapshot_at<?", (date, venue, stamp))
+        conn.commit()
     scrape.scrape_racecard(conn, date, venue, refresh=True)
     run_id = f"score-{date}-{venue}-{now_hkt():%H%M}"
     k = pipeline.preview_scores(conn, run_id, date, venue)

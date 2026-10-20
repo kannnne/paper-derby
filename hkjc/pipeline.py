@@ -162,9 +162,10 @@ def preview_scores(conn, run_id, date, venue) -> int:
     pred = model.predict_card(conn, date, venue, kind="combined", odds=odds or None)
     if pred.empty:
         return 0
-    card = pd.read_sql_query("SELECT race_no, horse_no, scratched FROM racecard WHERE date=? AND venue=?",
-                             conn, params=(date, venue))
-    pred = pred.merge(card, on=["race_no", "horse_no"], how="left")
+    card = pd.read_sql_query("SELECT race_no, horse_no, horse_name, jockey_name, trainer_name, scratched "
+                             "FROM racecard WHERE date=? AND venue=?", conn, params=(date, venue))
+    pred = pred.drop(columns=[c for c in ("horse_name",) if c in pred.columns]).merge(
+        card, on=["race_no", "horse_no"], how="left")
     pred = pred[pred["scratched"].fillna(0) == 0].copy()
     now = datetime.now().isoformat(timespec="seconds")
     conn.executemany(
@@ -174,13 +175,60 @@ def preview_scores(conn, run_id, date, venue) -> int:
          for r in pred.itertuples()])
     sc = scores.score_meeting(conn, date, venue, pred_df=pred, odds=odds or None)
     scores.save_scores(conn, run_id, sc)
+    try:
+        preview_decisions(conn, run_id, date, venue, pred, odds, sc)
+    except Exception:     # the scores preview must never fail because of the decision preview
+        log.exception("decision preview failed for %s %s", date, venue)
     old = [r[0] for r in conn.execute("SELECT run_id FROM runs WHERE kind='pre_scores' AND date=? AND venue=? "
                                       "AND run_id!=?", (date, venue, run_id))]
     for rid in old:
-        for t in ("horse_scores", "predictions", "runs"):
+        for t in PREVIEW_TABLES:
             conn.execute(f"DELETE FROM {t} WHERE run_id=?", (rid,))
     conn.commit()
     return len(sc)
+
+
+PREVIEW_TABLES = ("horse_scores", "predictions", "bot_decisions", "picks", "runs")
+
+
+def preview_decisions(conn, run_id, date, venue, pred, odds, sc=None) -> int:
+    """預覽（未落注）: every robot's decisions + 今日精選 with the current odds, written under the
+    preview ``run_id`` - bot_decisions rows with ticket_id NULL and the picks dict in ``picks``.
+    NEVER places tickets or touches paper_tickets / bankroll_ledger (bots.decide only reads the
+    bankroll).  Skipped (returns 0) once the meeting has a betting run or any paper ticket, so a
+    forced preview can never mix with real decisions.  Returns the number of decision rows."""
+    if conn.execute("SELECT 1 FROM runs WHERE date=? AND venue=? AND kind IN ('pre_bet','pre_report') LIMIT 1",
+                    (date, venue)).fetchone() or \
+            conn.execute("SELECT 1 FROM paper_tickets WHERE date=? AND venue=? LIMIT 1", (date, venue)).fetchone():
+        log.info("decision preview skipped for %s %s: a betting run exists", date, venue)
+        return 0
+    pred = pred.copy()
+
+    def _o(rn, pool, h):
+        return (odds.get(int(rn), {}).get(pool, {}) or {}).get(str(int(h))) if odds else None
+    pred["win_odds_live"] = [_o(r, "WIN", h) for r, h in zip(pred.race_no, pred.horse_no)]
+    pred["pla_odds"] = [_o(r, "PLA", h) for r, h in zip(pred.race_no, pred.horse_no)]
+    if sc is not None and len(sc) and "score" not in pred.columns:
+        pred = pred.merge(sc[["race_no", "horse_no", "score"]], on=["race_no", "horse_no"], how="left")
+    pk = _make_picks(conn, run_id, date, venue, pred, odds)       # stored in table picks under run_id
+    now = datetime.now().isoformat(timespec="seconds")
+    rows = []
+    for b in bots.BOTS:
+        try:
+            decs = bots.decide(b, pred, odds or None, paper.bankroll(conn, bot_id=b["id"]), picks=pk)
+        except Exception as e:
+            log.exception("robot %s preview failed", b["id"])
+            decs = bots._error_rows(b["id"], pred, e)
+        for d in decs:
+            rows.append((run_id, b["id"], date, venue, d["race_no"], d["action"], d["structure"],
+                         json.dumps(d["selections"], ensure_ascii=False, default=int), d["stake"], d["reason"],
+                         None, now))
+    conn.execute("DELETE FROM bot_decisions WHERE run_id=?", (run_id,))
+    conn.executemany(
+        "INSERT OR REPLACE INTO bot_decisions (run_id, bot_id, date, venue, race_no, action, structure, "
+        "selections, stake, reason, ticket_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+    conn.commit()
+    return len(rows)
 
 
 # ---------------------------------------------------------------------- pre-meeting
@@ -224,6 +272,12 @@ def pre_meeting(conn, run_id, date, venue, config=None, place_bets=True) -> dict
 
     # 今日精選（分析引擎；daily_picks 機械人照買）
     pk = _make_picks(conn, run_id, date, venue, pred, odds)
+    if place_bets:     # the real run supersedes the 預覽: drop the preview decisions / picks of this meeting
+        for (rid,) in conn.execute("SELECT run_id FROM runs WHERE kind='pre_scores' AND date=? AND venue=?",
+                                   (date, venue)).fetchall():
+            for t in ("bot_decisions", "picks"):
+                conn.execute(f"DELETE FROM {t} WHERE run_id=?", (rid,))
+        conn.commit()
 
     # 機械人各自決定（每場都有買/唔買原因）
     if place_bets:

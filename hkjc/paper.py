@@ -393,7 +393,8 @@ def bot_summary(conn) -> list[dict]:
         mtgs = {(r["date"], r["venue"]) for r in rows}
         mtgs |= {(r[0], r[1]) for r in conn.execute(
             "SELECT DISTINCT d.date, d.venue FROM bot_decisions d JOIN meetings m "
-            "ON m.date=d.date AND m.venue=d.venue WHERE d.bot_id=? AND m.status IN (?,?)",
+            "ON m.date=d.date AND m.venue=d.venue LEFT JOIN runs u ON u.run_id=d.run_id "
+            "WHERE d.bot_id=? AND m.status IN (?,?) AND COALESCE(u.kind,'') != 'pre_scores'",
             (bid, *FINAL_STATUSES))}
         s = _stats(rows)
         mdd, cdd = _meeting_dd(rows)

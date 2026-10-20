@@ -769,3 +769,15 @@ details.tk-why[open] > summary { display: none; }
   .pk-sec-h { margin-left: 12px; margin-right: 8px; }
   .pk-sec-r { margin-left: 0; width: 100%; }
 }
+
+/* ---- 預覽（未落注）: hourly preview of robot decisions / picks */
+.pv-banner { display: flex; gap: 8px; align-items: flex-start; margin: 8px 12px 6px 18px; padding: 8px 12px; border-radius: 8px;
+  border: 1px dashed #ffc83d; background: rgba(255, 200, 61, .10); font-size: 13px; line-height: 1.5; color: var(--text); }
+.pv-chip { display: inline-block; flex: none; font-size: 11px; font-weight: 900; letter-spacing: .05em; padding: 1px 8px; border-radius: 4px;
+  background: transparent; color: #ffc83d; border: 1px dashed #ffc83d; white-space: nowrap; }
+.pv-chip.sm { padding: 0 6px; margin-left: 6px; }
+.rb-card.is-preview { border-style: dashed; }
+.rb-card.is-preview .tk { border-style: dashed; }
+.picks.is-preview { outline: 1px dashed rgba(255, 200, 61, .55); outline-offset: -1px; }
+section > .pv-banner { margin-left: 0; margin-right: 0; }
+@media (max-width: 640px) { .pv-banner { margin-left: 12px; margin-right: 8px; } }

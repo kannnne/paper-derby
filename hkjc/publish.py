@@ -71,6 +71,13 @@ curves in bot_history.json) are deliberately NOT exported any more - the public 
 live (paper) results only.  ``data/bot_backtest.json`` (hkjc.bots.backtest_bots) stays an internal
 research file and is never read here.
 
+[+] 預覽（未落注）: before the T-2h betting run, cli.cmd_scores (run kind 'pre_scores') stores every robot's
+decisions (bot_decisions, ticket_id NULL) and the 今日精選 picks under the preview run.  Such a meeting
+file has ``preview: true`` + ``preview_at``; robot cards carry pseudo-tickets ({status:'preview',
+ticket_id:null, payout:null, preview:true}) built from the decision rows, decisions carry
+``preview: true``, picks carry ``preview: true``; index meetings[] has ``preview``.  Preview stakes never
+enter bankrolls / live stats / bots/<id>.json.  The real betting run deletes the preview rows, so it wins.
+
 Only the latest run per meeting is exported: the latest post-meeting run when the meeting has
 results and such a run produced data, else the latest pre-meeting run (robot decisions: each
 robot's latest run).  A meeting file whose content is unchanged apart from generated_at is not
@@ -454,6 +461,40 @@ def _ticket_json(t) -> dict:
             "status": status, "reason": reason or ""}
 
 
+# ------------------------------------------------------------------ 預覽（未落注）
+PREVIEW_KIND = "pre_scores"      # runs.kind of the hourly scores / decisions preview (cli.cmd_scores)
+
+
+def _preview_legs(race_no, sel):
+    """Decision-row selections -> ticket-like legs."""
+    if isinstance(sel, list) and sel and all(isinstance(x, dict) and "race_no" in x for x in sel):
+        return [{k: v for k, v in x.items()} for x in sel]
+    if isinstance(sel, dict):
+        if "race_no" in sel:
+            return [dict(sel)]
+        leg = {"race_no": int(race_no)}
+        if sel.get("bankers"):
+            leg["bankers"] = list(sel["bankers"])
+        leg["selections"] = list(sel.get("selections") or sel.get("legs") or [])
+        if sel.get("positions"):
+            leg["positions"] = sel["positions"]
+        return [leg]
+    return [{"race_no": int(race_no), "selections": list(sel or [])}]
+
+
+def _preview_ticket(r) -> dict:
+    """A 'bet' decision row of a preview run as a ticket-shaped dict: status 'preview', no payout."""
+    sel = _json(r["selections"], [])
+    legs = _preview_legs(r["race_no"], sel)
+    stake = _f(r["stake"], 2) or 0.0
+    return {"ticket_id": None, "strategy": f"{r['bot_id']}:{r['structure'] or ''}", "legs": legs,
+            "n_combos": int(round(stake / 10.0)) if stake else None, "unit_stake": 10.0, "total_stake": stake,
+            "payout": None, "profit": None, "status": "preview", "reason": _reason_txt(r["reason"]),
+            "race_no": int(r["race_no"]) if len(legs) == 1 or int(r["race_no"]) == 0 else 0,
+            "structure": r["structure"] or "", "selections": sel, "leg_hits": [None] * len(legs), "hit": None,
+            "preview": True}
+
+
 # ------------------------------------------------------------------ 今日精選 (daily picks)
 PICKS_BOT = "daily_picks"
 PICKS_TITLE = "今日精選"
@@ -653,6 +694,13 @@ def build_picks(conn, date, venue, races) -> dict | None:
     out = {k: v for k, v in stored.items() if k not in ("race_notes", "n_candidates", "items", "banker")}
     for it in items:
         it["post_time"] = it.get("post_time") or (byrn.get(int(it["races"][0])) or {}).get("post_time")
+    prun = _picks_run(conn, date, venue)
+    kr = conn.execute("SELECT kind, created_at FROM runs WHERE run_id=?", (prun,)).fetchone() if prun else None
+    if kr is not None and kr[0] == PREVIEW_KIND:
+        out["preview"], out["preview_at"] = True, kr[1]
+        total_payout = None
+    else:
+        out["preview"] = False
     out.update({"title": PICKS_TITLE, "items": items, "banker": banker, "n_items": len(sel), "total_stake": total,
                 "n_star": sum(1 for i in sel if i.get("star")),
                 "total_payout": total_payout,
@@ -698,6 +746,10 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
             "SELECT * FROM paper_tickets WHERE date=? AND venue=?", (date, venue))}
 
     decisions, tdec, skips = {}, {}, {}
+    run_kind = {r[0]: (r[1], r[2]) for r in conn.execute("SELECT run_id, kind, created_at FROM runs WHERE date=? "
+                                                         "AND venue=?", (date, venue))}
+    preview_rows = []          # 預覽（未落注）: decision rows of a 'pre_scores' run (ticket_id NULL)
+    preview_at = None
     if d_run:
         # each robot's rows of its latest run (bots.run_bots replaces a robot's rows per meeting,
         # so robots re-decided by a later run never hide the others' decisions)
@@ -728,11 +780,17 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
                 skips.setdefault(r["bot_id"], []).append({"race_no": int(r["race_no"]),
                                                           "structure": r["structure"] or "",
                                                           "reason": _reason_txt(r["reason"])})
+            is_prev = (run_kind.get(r["run_id"]) or ("", ""))[0] == PREVIEW_KIND
+            if is_prev:
+                preview_rows.append(r)
+                preview_at = max(preview_at or "", (run_kind.get(r["run_id"]) or ("", ""))[1] or r["created_at"] or "")
+                tstat = "preview" if r["action"] == "bet" and (r["stake"] or 0) > 0 else None
             decisions.setdefault(int(r["race_no"]), []).append({
                 "bot_id": r["bot_id"], "race_no": int(r["race_no"]), "action": r["action"],
                 "structure": r["structure"] or "", "selections": _json(r["selections"], []),
                 "stake": _f(r["stake"], 2) or 0.0, "reason": _reason_txt(r["reason"]),
-                "payout": payout, "profit": profit, "ticket_status": tstat, "parlay_leg": bool(leg)})
+                "payout": payout, "profit": profit, "ticket_status": tstat, "parlay_leg": bool(leg),
+                **({"preview": True} if is_prev else {})})
 
     model_version = None
     out_races = []
@@ -820,10 +878,23 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
             b["profit"] = round(b["payout"] - b["stake"], 2)
         else:
             b["payout"] = b["profit"] = None
+    preview = bool(preview_rows)
+    for r in preview_rows:     # pseudo-tickets of the preview (no ticket placed, no payout)
+        if r["action"] != "bet" or not (r["stake"] or 0) > 0:
+            continue
+        b = bots.setdefault(r["bot_id"], {"bot_id": r["bot_id"], "stake": 0.0, "payout": None, "profit": None,
+                                          "n_tickets": 0, "settled": False, "tickets": [], "preview": True})
+        tj = _preview_ticket(r)
+        b["tickets"].append(tj)
+        b["n_tickets"] += 1
+        b["stake"] = round(b["stake"] + tj["total_stake"], 2)
+        b["preview"] = True
     for bid in {d["bot_id"] for ds in decisions.values() for d in ds} - set(bots):
         bots[bid] = {"bot_id": bid, "stake": 0.0, "payout": 0.0 if status == "results" else None,
                      "profit": 0.0 if status == "results" else None, "n_tickets": 0,
                      "settled": status == "results", "tickets": []}
+        if preview:
+            bots[bid].update({"payout": None, "profit": None, "settled": False, "preview": True})
     for b in bots.values():
         b["tickets"].sort(key=lambda t: (t["race_no"] or 99, t["ticket_id"] or 0))
         b["skips"] = sorted(skips.get(b["bot_id"], []), key=lambda x: (x["race_no"] or 99))
@@ -833,6 +904,7 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
             "generated_at": _now(), "odds_snapshot_at": snap, "model_version": model_version,
             "scores_run_id": s_run, "decisions_run_id": d_run,
             "races": out_races, "meeting_decisions": decisions.get(0, []), "bots": bot_list,
+            "preview": preview, "preview_at": preview_at if preview else None,
             "picks": build_picks(conn, date, venue, out_races)}
 
 
@@ -891,7 +963,8 @@ def _live_stats(conn, bot_ids):
         meets = {}
         finished = {(r[0], r[1]) for r in conn.execute(
             "SELECT DISTINCT d.date, d.venue FROM bot_decisions d JOIN meetings m ON m.date=d.date AND "
-            "m.venue=d.venue WHERE d.bot_id=? AND m.status IN ('results','abandoned')", (bid,))}
+            "m.venue=d.venue LEFT JOIN runs u ON u.run_id=d.run_id WHERE d.bot_id=? AND "
+            "m.status IN ('results','abandoned') AND COALESCE(u.kind,'') != 'pre_scores'", (bid,))}
         for r in settled:
             m = meets.setdefault((r["date"], r["venue"]), [0.0, 0.0])
             m[0] += r["total_stake"] or 0
@@ -938,13 +1011,15 @@ def export_site(conn, out_dir=None, demo: bool = False) -> list[Path]:
         written.append(_write_json(mdir / fname, m, ignore=("generated_at",)))
         for b in m["bots"]:
             for t in b["tickets"]:
+                if t.get("status") == "preview":          # 預覽 pseudo-tickets never enter a robot's history
+                    continue
                 bot_tickets.setdefault(b["bot_id"], []).append(
                     {"date": date, "venue": venue, "venue_zh": VENUE_ZH.get(venue, venue), **t})
         metas.append({"date": date, "venue": venue, "venue_zh": VENUE_ZH.get(venue, venue),
                       "status": m["status"], "file": f"data/meetings/{fname}", "n_races": len(m["races"]),
                       "has_scores": any(h["score"] is not None for r in m["races"] for h in r["horses"]),
                       "has_decisions": any(r["decisions"] for r in m["races"]) or bool(m["meeting_decisions"]),
-                      "has_picks": bool(m.get("picks"))})
+                      "has_picks": bool(m.get("picks")), "preview": bool(m.get("preview"))})
     keep = {p.name for p in written}
     for p in mdir.glob("*.json"):
         if p.name not in keep:

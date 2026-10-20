@@ -393,3 +393,15 @@ def test_void_settled_reverses_ledger(sdb):
     st_ = sdb.execute("SELECT status, payout, profit FROM paper_tickets WHERE ticket_id=?", (ids[0],)).fetchone()
     assert tuple(st_) == ("void", 20.0, 0)
     assert paper.void_settled(sdb, D, "ST", "daily_picks") == []
+
+
+def test_thin_live_exotic_odds_clipped_to_market_estimate():
+    pred = race(1, P10)
+    live = {1: {"WIN": {str(h): float(o) for h, o in zip(pred.horse_no, pred.win_odds)},
+                "FCT": {"1,2": 900.0, "2,1": 5.0}}}
+    _by, ctx = _cands(pred, live)
+    r = ctx["races"][1]
+    est = r.est_mkt("FCT", "1,2")
+    assert est < 3000
+    assert r.div("FCT", "1,2") == (pytest.approx(picks.EXOTIC_LIVE_MAX_RATIO * est), "live")
+    assert r.div("FCT", "2,1") == (50.0, "live")                     # below the clip: live price as is

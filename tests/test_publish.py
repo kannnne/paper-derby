@@ -177,6 +177,10 @@ def validate_meeting(d):
             assert (t["payout"] is None) == (t["status"] != "settled")
         for x in b["skips"]:
             _req(x, {"race_no": int, "structure": str, "reason": str}, "skip")
+    assert isinstance(d.get("preview", False), bool)
+    if d.get("preview"):          # 預覽（未落注）: pseudo-tickets only, never a payout
+        assert d.get("preview_at")
+        assert all(t["status"] == "preview" and t["payout"] is None for b in d["bots"] for t in b["tickets"])
     if "picks" in d:
         validate_picks(d["picks"])
 
