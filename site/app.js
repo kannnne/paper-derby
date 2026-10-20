@@ -231,12 +231,17 @@
     var nm = idx.next_meeting;
     var html = demoBanner(idx) + '<h1 class="sr-only">跑道機械人 · 模擬賽馬研究</h1>';
 
-    // ① 賽馬日紀錄 (newest first) — very top
-    html += '<section class="section top-section" aria-labelledby="mtg-h"><div class="section-head"><span class="kicker">MEETINGS</span><h2 id="mtg-h">賽馬日紀錄</h2>' +
+    // ① 今日精選 / 機械人預覽 (two sub-tabs) — very top
+    html += '<section class="section top-section" aria-labelledby="pk-h"><div class="section-head"><span class="kicker">TODAY</span><h2 id="pk-h">今日精選</h2>' +
+      '<span class="muted small" id="pk-sub"></span></div>' +
+      '<div class="home-tabs" role="tablist" aria-label="今日精選或者機械人預覽">' +
+      '<button type="button" role="tab" id="tab-picks" aria-controls="home-picks" data-tab="picks">今日精選</button>' +
+      '<button type="button" role="tab" id="tab-robots" aria-controls="home-robots" data-tab="robots">機械人預覽</button></div>' +
+      '<div id="home-picks" role="tabpanel" aria-labelledby="tab-picks"><div class="panel loading">載入精選…</div></div>' +
+      '<div id="home-robots" role="tabpanel" aria-labelledby="tab-robots" hidden><div class="panel loading">載入機械人…</div></div></section>';
+    // ①b 賽馬日紀錄 (newest first)
+    html += '<section class="section" aria-labelledby="mtg-h"><div class="section-head"><span class="kicker">MEETINGS</span><h2 id="mtg-h">賽馬日紀錄</h2>' +
       '<span class="muted small">最新排最前</span></div><div class="mtg-list" id="mtg-list"></div><div id="mtg-more"></div></section>';
-    // ①b 今日精選 (same meeting file as the scores when both exist)
-    html += '<section class="section" aria-labelledby="pk-h"><div class="section-head"><span class="kicker">PICKS</span><h2 id="pk-h">今日精選</h2>' +
-      '<span class="muted small" id="pk-sub"></span></div><div id="home-picks"><div class="panel loading">載入精選…</div></div></section>';
     // ② 最新賽馬日馬匹評分 (one meeting file, lazy)
     html += '<section class="section" aria-labelledby="hs-h"><div class="section-head"><span class="kicker">SCORES</span><h2 id="hs-h">最新馬匹評分</h2>' +
       '<span class="muted small" id="hs-sub"></span></div><div id="home-scores"><div class="panel loading">載入評分…</div></div></section>';
@@ -264,8 +269,84 @@
         ' 個）；較早嘅可以喺<a href="#/meeting/' + meetingId(allM[MAX_CARDS]) + '">賽馬日頁</a>用選單揀。</p>';
     }
     drawHomePicks(document.getElementById("home-picks"), picksMeeting(idx));
+    drawHomeRobots(document.getElementById("home-robots"), robotsMeeting(idx));
+    bindHomeTabs();
     drawHomeScores(document.getElementById("home-scores"), shown);
     drawBoard();
+  }
+
+  // ------------------------------------------------------------------ home: 今日精選 / 機械人預覽 tabs
+  function bindHomeTabs() {
+    var saved = "picks";      // 今日精選 always opens first
+    function show(tab) {
+      ["picks", "robots"].forEach(function (t) {
+        var btn = document.getElementById("tab-" + t), panel = document.getElementById("home-" + t);
+        if (!btn || !panel) return;
+        btn.setAttribute("aria-selected", t === tab ? "true" : "false");
+        btn.classList.toggle("on", t === tab);
+        panel.hidden = t !== tab;
+      });
+      var h = document.getElementById("pk-h");
+      if (h) h.textContent = tab === "robots" ? "機械人預覽" : "今日精選";
+      var sub = document.getElementById("pk-sub");
+      if (sub) sub.textContent = (tab === "robots" ? sub.getAttribute("data-robots") : sub.getAttribute("data-picks")) || "";
+    }
+    document.querySelectorAll(".home-tabs [data-tab]").forEach(function (b) {
+      b.addEventListener("click", function () { show(b.getAttribute("data-tab")); });
+    });
+    show(saved === "robots" ? "robots" : "picks");
+  }
+  // Meeting whose robot decisions the home page shows: the next meeting once decided (preview or real),
+  // otherwise the latest meeting with decisions.
+  function robotsMeeting(idx) {
+    var ms = sortedMeetings(idx), nm = idx.next_meeting;
+    if (nm) {
+      var n = ms.filter(function (m) { return m.date === nm.date && m.venue === nm.venue && m.has_decisions; })[0];
+      if (n) return n;
+    }
+    return ms.filter(function (m) { return m.has_decisions && (!nm || m.date <= nm.date); })[0] || null;
+  }
+  function drawHomeRobots(el, mtg) {
+    var idx = state.index;
+    var sub = document.getElementById("pk-sub");
+    function setSub(t) { if (sub) { sub.setAttribute("data-robots", t); if (!document.getElementById("home-robots").hidden) sub.textContent = t; } }
+    if (!mtg) {
+      setSub("");
+      el.innerHTML = '<div class="panel pad">未有機械人決定。馬會開售賠率之後會出預覽，第一場開跑前約 2 小時正式落注。</div>';
+      return;
+    }
+    loadMeeting(meetingId(mtg)).then(function (m) {
+      if (!document.body.contains(el)) return;
+      var nm = idx.next_meeting, isNext = nm && m.date === nm.date && m.venue === nm.venue;
+      setSub((isNext ? "下一個賽馬日" : "最近一個賽馬日") + (m.preview ? " · 預覽（未落注）" : " · 正式落注"));
+      var by = {};
+      (m.bots || []).forEach(function (b) { by[b.bot_id] = b; });
+      var list = (idx.bots || []).slice().sort(function (a, b) { return a.no - b.no; });
+      var sel = list.filter(function (b) { return by[b.id] && (by[b.id].tickets || []).length; })[0] || list[0];
+      try { var k = localStorage.getItem("home-bot"); if (k && list.some(function (b) { return b.id === k; })) sel = list.filter(function (b) { return b.id === k; })[0]; } catch (e) { /* ignore */ }
+      function render() {
+        var html = '<div class="hr-head"><b>' + meetingName(m) + '</b> <a class="hs-link" href="#/meeting/' + meetingId(m) + '">完整賽馬日頁 →</a></div>';
+        if (m.preview) html += previewBanner(m);
+        html += '<div class="hr-picker" role="group" aria-label="揀機械人">' + list.map(function (b) {
+          var t = by[b.id] ? (by[b.id].tickets || []).length : 0;
+          return '<button type="button" class="hr-bot' + (b.id === sel.id ? " on" : "") + '" data-id="' + esc(b.id) + '" aria-pressed="' + (b.id === sel.id) + '">' +
+            botToken(b, "xs") + "<span>" + esc(b.name) + "</span><small>" + (t ? t + " 張" : "唔買") + "</small></button>";
+        }).join("") + "</div>";
+        html += robotCard(sel, by[sel.id], m);
+        html += '<p class="small muted">' + (m.preview ? "預覽：用最新賠率計機械人如果而家落注會買乜，未落注、唔計入資金同排行榜。" : "") + "模擬研究，非投注建議。</p>";
+        el.innerHTML = html;
+        el.querySelectorAll(".hr-bot").forEach(function (b) {
+          b.addEventListener("click", function () {
+            sel = list.filter(function (x) { return x.id === b.getAttribute("data-id"); })[0] || sel;
+            try { localStorage.setItem("home-bot", sel.id); } catch (e) { /* ignore */ }
+            render();
+          });
+        });
+      }
+      render();
+    }).catch(function () {
+      el.innerHTML = '<div class="panel pad">載入機械人決定失敗，請重新整理。</div>';
+    });
   }
 
   // ------------------------------------------------------------------ 今日精選 (daily picks, from the analysis engine)
@@ -295,7 +376,8 @@
       if (!m.picks) { placeholder(); return; }
       var nm = idx.next_meeting;
       var isNext = nm && m.date === nm.date && m.venue === nm.venue;
-      if (sub) sub.textContent = (isNext ? "下一個賽馬日" : "最近一個有精選嘅賽馬日") + (isPreview(m) ? " · 預覽（未落注）" : "");
+      var pkSub = (isNext ? "下一個賽馬日" : "最近一個有精選嘅賽馬日") + (isPreview(m) ? " · 預覽（未落注）" : "");
+      if (sub) { sub.setAttribute("data-picks", pkSub); if (!document.getElementById("home-picks").hidden) sub.textContent = pkSub; }
       var html = picksCard(m, true);
       if (!isNext && nm) html += '<p class="small muted hs-note">下一個賽馬日（' + shortDate(nm.date) + " " + esc(nm.venue_zh || VENUE_ZH[nm.venue] || nm.venue) +
         "）嘅精選會喺第一場開跑前約 2 小時" + preRaceEta(nm) + "自動出。</p>";

@@ -787,3 +787,13 @@ section > .pv-banner { margin-left: 0; margin-right: 0; }
 .pk-stars .pk-sec-h .pk-star{font-size:15px}
 .pk-nostar{margin:6px 4px}
 .pk-others-h{margin:14px 4px 4px;font-weight:600}
+
+/* home: 今日精選 / 機械人預覽 tabs */
+.home-tabs{display:flex;gap:6px;margin:4px 0 10px}
+.home-tabs button{flex:1;max-width:220px;padding:9px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:transparent;color:inherit;font:inherit;font-weight:700;cursor:pointer}
+.home-tabs button.on{background:#f5b301;color:#111;border-color:#f5b301}
+.hr-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0 8px;flex-wrap:wrap}
+.hr-picker{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:thin}
+.hr-bot{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:78px;padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.03);color:inherit;font:inherit;font-size:12px;cursor:pointer}
+.hr-bot small{opacity:.7}
+.hr-bot.on{border-color:#f5b301;background:rgba(245,179,1,.14)}
