@@ -1072,8 +1072,7 @@
     var html = demoBanner(idx);
     html += '<div class="mtg-head"><h1>' + meetingName(m) + '</h1><span class="chip status-' + esc(m.status) + '">' + esc(STATUS_ZH[m.status] || m.status) + "</span>" +
       '<label class="small muted" style="display:flex;align-items:center;gap:6px">賽馬日 <select class="select" id="mtg-sel">' + opts + "</select></label></div>";
-    html += '<div class="mtg-meta"><span>賠率快照：' + (m.odds_snapshot_at ? esc(String(m.odds_snapshot_at).replace("T", " ").slice(0, 16)) : "未開售（只用模型估計）") + "</span>" +
-      "<span>模型：" + esc(m.model_version || DASH) + "</span><span>生成時間：" + esc(m.generated_at ? String(m.generated_at).replace("T", " ").slice(0, 16) : DASH) + "</span></div>";
+    html += '<div class="mtg-meta"><span>生成時間：' + esc(m.generated_at ? String(m.generated_at).replace("T", " ").slice(0, 16) : DASH) + "</span></div>";
     if (m.picks) html += '<section class="section pk-section" aria-label="今日精選">' + picksCard(m, false) + "</section>";
 
     html += '<nav class="race-tabs" aria-label="場次">' + races.map(function (r) {
