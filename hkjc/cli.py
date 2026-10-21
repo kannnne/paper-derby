@@ -289,6 +289,19 @@ def cmd_tick(conn):
                 cmd_post(conn, p["date"])
             except Exception:
                 log.exception("tick: post step for %s %s failed (will retry next tick)", p["date"], p["venue"])
+    # 1b) live results already marked the meeting 'results' -> the post step (settle, report,
+    #     retrain) still has to run once for meetings this system tracked (had a pre run)
+    for p in conn.execute(
+            "SELECT m.date, m.venue, MAX(r.post_time) AS last_post FROM meetings m "
+            "JOIN races r ON r.date=m.date AND r.venue=m.venue WHERE m.status='results' AND m.date>=? AND m.date<=? "
+            "AND EXISTS (SELECT 1 FROM runs u WHERE u.date=m.date AND u.venue=m.venue AND u.kind LIKE 'pre%') "
+            "AND NOT EXISTS (SELECT 1 FROM runs u WHERE u.date=m.date AND u.venue=m.venue AND u.kind='post_analysis') "
+            "GROUP BY m.date, m.venue", (since, now.strftime("%Y-%m-%d"))).fetchall():
+        if p["last_post"] and now >= _parse_ts(p["last_post"]) + POST_DELAY:
+            try:
+                cmd_post(conn, p["date"])
+            except Exception:
+                log.exception("tick: post step for %s %s failed (will retry next tick)", p["date"], p["venue"])
     if now.minute < 10:     # about once an hour: meetings the scheduler no longer retries
         for r in conn.execute("SELECT date, venue, status FROM meetings WHERE date<? AND "
                               "(status IS NULL OR status NOT IN ('results','abandoned'))", (since,)):

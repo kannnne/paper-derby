@@ -80,6 +80,7 @@ def loop(minutes, interval):
             restart = True
             break
         run_tick()
+        sh(f"{PY} -m hkjc.health --fix --notify")       # 自動覆核：補救 + GitHub issue 通知
         commit_and_push(f"bot: {datetime.now(HKT):%Y-%m-%d %H:%M} HKT")
         time.sleep(max(30, interval * 60))
     log("loop finished" + (" (restart)" if restart else ""))

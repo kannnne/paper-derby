@@ -1,0 +1,28 @@
+name: watchdog
+
+# Restarts the race-bot loop if nothing is running or queued (e.g. the chain broke).
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Restart race-bot loop when it is not running
+        run: |
+          active=$(gh run list --workflow race-bot.yml --limit 20 --json status \
+            --jq '[.[] | select(.status=="in_progress" or .status=="queued" or .status=="waiting" or .status=="pending")] | length')
+          echo "active race-bot runs: $active"
+          if [ "$active" = "0" ]; then
+            gh workflow run race-bot.yml -f command=loop
+            echo "race-bot loop restarted"
+          fi
