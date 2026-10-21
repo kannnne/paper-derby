@@ -1,15 +1,17 @@
 name: race-bot
 
+# GitHub's cron is unreliable (often hours late), so one run loops `python -m hkjc tick`
+# every 5 minutes for ~5.5 h and then dispatches the next run itself (24/7 chain).
+# The hourly schedule is only a backup in case the chain ever breaks.
 on:
   schedule:
-    # every 30 min, 08:00–01:59 HKT (UTC 00:00–17:59); covers day + night meetings
-    - cron: "*/30 0-17 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       command:
-        description: "tick | probe | report | post"
+        description: "loop | tick | scores | live | post | probe | report"
         required: false
-        default: "tick"
+        default: "loop"
 
 concurrency:
   group: race-bot
@@ -17,20 +19,18 @@ concurrency:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
+  actions: write
 
 env:
   TZ: Asia/Hong_Kong
   HKJC_CLOUD: "1"
   PYTHONUNBUFFERED: "1"
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-    outputs:
-      changed: ${{ steps.commit.outputs.changed }}
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -39,48 +39,21 @@ jobs:
           cache: pip
       - name: Install
         run: pip install -r requirements.txt
+      - name: Git identity
+        run: |
+          git config user.name "Paper Derby Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Restore database from text dump
         run: python -m hkjc.dbdump load data/db data/hkjc.db
       - name: Probe HKJC connectivity
         if: ${{ github.event.inputs.command == 'probe' }}
         run: PYTHONPATH=. python scripts/probe_hkjc.py
-      - name: Run
-        if: ${{ github.event.inputs.command != 'probe' }}
-        run: python -m hkjc ${{ github.event.inputs.command || 'tick' }}
+      - name: Loop (tick every 5 min, ~5.5 h, then chain the next run)
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.command == 'loop' || github.event.inputs.command == '' }}
+        run: python scripts/cloud_loop.py loop --minutes 330 --interval 5
+      - name: One command
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.command != 'loop' && github.event.inputs.command != '' && github.event.inputs.command != 'probe' }}
+        run: python scripts/cloud_loop.py once "${{ github.event.inputs.command }}"
       - name: Show log
         if: always()
-        run: tail -n 40 data/logs/hkjc.log 2>/dev/null || true
-      - name: Dump database
-        if: ${{ github.event.inputs.command != 'probe' }}
-        run: python -m hkjc.dbdump dump data/hkjc.db data/db
-      - name: Commit changes
-        id: commit
-        if: ${{ github.event.inputs.command != 'probe' }}
-        run: |
-          git config user.name "Paper Derby Bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A data/db reports site data/bot_backtest.json
-          if git diff --cached --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -q -m "bot: $(date '+%Y-%m-%d %H:%M') HKT"
-            git pull --rebase -q || true
-            git push -q
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Upload site
-        if: ${{ steps.commit.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' }}
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-  deploy:
-    needs: run
-    if: ${{ needs.run.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@v4
+        run: tail -n 60 data/logs/hkjc.log 2>/dev/null || true

@@ -52,6 +52,7 @@ def calls(monkeypatch):
         rec["pre"].append((mtg["date"] if mtg else None, place_bets))
     monkeypatch.setattr(cli, "cmd_pre", fake_pre)
     monkeypatch.setattr(cli, "cmd_post", lambda conn, date=None: rec["post"].append(date))
+    monkeypatch.setattr(cli, "cmd_scores", lambda conn, mtg=None, force=False: 0)   # no live HTTP in tests
 
     def fake_next(conn=None, fetcher=None):
         rec["next"] += 1
@@ -362,3 +363,42 @@ def test_tick_runs_scores_preview_before_bet_window(tmp_path, monkeypatch):
     calls.clear()
     cli.cmd_tick(conn)
     assert calls == []
+
+
+def test_tick_live_results_during_meeting(tmp_path, monkeypatch):
+    """While races are running, tick fetches results race by race (no waiting for the last race)."""
+    from datetime import datetime
+    from hkjc import cli
+    from hkjc.db import connect
+
+    conn = connect(tmp_path / "t.db")
+    conn.execute("INSERT INTO meetings (date, venue, n_races, first_post_time, status) VALUES "
+                 "('2026-10-21','HV',3,'2026-10-21T18:40','card')")
+    for i, t in enumerate(("18:40", "19:10", "19:40"), 1):
+        conn.execute("INSERT INTO races (race_id, date, venue, race_no, post_time) VALUES (?,?,?,?,?)",
+                     (f"20261021-HV-0{i}", "2026-10-21", "HV", i, f"2026-10-21T{t}"))
+    conn.execute("INSERT INTO runs (run_id, kind, date, venue, created_at) VALUES ('p','pre_bet','2026-10-21','HV','x')")
+    conn.commit()
+    calls = []
+
+    def fake_live(c, date, venue=None):
+        calls.append(date)
+        c.execute("INSERT OR REPLACE INTO dividends (race_id, pool, combination, dividend) VALUES ('20261021-HV-01','WIN','1',50)")
+        c.commit()
+        return 1
+
+    monkeypatch.setattr(cli, "cmd_live", fake_live)
+    monkeypatch.setattr(cli, "_next_meeting", lambda c, now: None)
+    clock = {"t": datetime(2026, 10, 21, 18, 45)}           # race 1 just started: too early
+    monkeypatch.setattr(cli, "now_hkt", lambda: clock["t"])
+    cli.cmd_tick(conn)
+    assert calls == []
+    clock["t"] = datetime(2026, 10, 21, 18, 50)             # race 1 + 10 min: fetch
+    cli.cmd_tick(conn)
+    assert calls == ["2026-10-21"]
+    clock["t"] = datetime(2026, 10, 21, 19, 5)              # race 1 already has results, race 2 not due
+    cli.cmd_tick(conn)
+    assert calls == ["2026-10-21"]
+    clock["t"] = datetime(2026, 10, 21, 19, 20)             # race 2 due
+    cli.cmd_tick(conn)
+    assert calls == ["2026-10-21", "2026-10-21"]

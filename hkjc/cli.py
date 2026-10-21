@@ -26,6 +26,7 @@ REPORT_DIR = Path(os.environ.get("HKJC_REPORT_DIR") or ROOT / "reports")
 PRE_LEAD = timedelta(hours=2)        # 第一場開跑前 2 小時
 PRE_LATEST = timedelta(minutes=15)   # 錯過咗都最遲開跑前 15 分鐘補做（之後只出參考報告、唔落模擬注）
 POST_DELAY = timedelta(minutes=45)   # 最後一場開跑後 45 分鐘先抓賽果
+LIVE_AFTER = timedelta(minutes=8)     # 每場開跑後約 8 分鐘開始抓嗰場賽果（即時更新）
 POST_LOOKBACK_DAYS = 7               # tick 只會自動重試最近 7 日未完成嘅賽馬日
 NO_RESULTS_GIVE_UP_DAYS = 2          # 賽馬日過咗 2 日都完全冇賽果頁 -> 當取消 (abandoned)
 SCORES_REFRESH = timedelta(minutes=55)    # 賠率開售後、落注前：大約每小時用最新賠率更新評分
@@ -151,6 +152,36 @@ def cmd_scores(conn, mtg=None, force=False):
     return k
 
 
+def _races_due_vs_done(conn, date, venue, now):
+    """(races whose result should be out by now, races that already have a WIN dividend)."""
+    due = conn.execute("SELECT COUNT(*) FROM races WHERE date=? AND venue=? AND post_time IS NOT NULL "
+                       "AND post_time<=?", (date, venue, (now - LIVE_AFTER).strftime("%Y-%m-%dT%H:%M"))).fetchone()[0]
+    done = conn.execute("SELECT COUNT(DISTINCT r.race_id) FROM races r JOIN dividends d ON d.race_id=r.race_id "
+                        "AND d.pool='WIN' WHERE r.date=? AND r.venue=?", (date, venue)).fetchone()[0]
+    return due, done
+
+
+def cmd_live(conn, date, venue=None):
+    """賽馬進行中：抓已跑完場次嘅賽果、結算已完成嘅注項、更新網站（唔使等全日跑完）。"""
+    from . import paper, scrape
+
+    row = conn.execute("SELECT venue FROM meetings WHERE date=?" + (" AND venue=?" if venue else ""),
+                       (date, venue) if venue else (date,)).fetchone()
+    venue = venue or (row["venue"] if row else None)
+    before = _races_due_vs_done(conn, date, venue, now_hkt())[1] if venue else 0
+    n = scrape.scrape_meeting_results(conn, date, venue, refresh=True)
+    if not n:
+        log.info("live results %s: none yet", date)
+        return 0
+    venue = venue or conn.execute("SELECT venue FROM meetings WHERE date=?", (date,)).fetchone()["venue"]
+    after = _races_due_vs_done(conn, date, venue, now_hkt())[1]
+    settled = paper.settle(conn, date)
+    log.info("live results %s %s: %s races with results (was %s), %s tickets settled", date, venue, after, before, settled)
+    if after != before or settled:
+        _publish(conn, f"即時賽果 {date} {venue} 第{after}場")
+    return after
+
+
 # --------------------------------------------------------------- post-race
 def cmd_post(conn, date=None):
     from . import paper, pipeline, scrape
@@ -228,6 +259,21 @@ def cmd_tick(conn):
     simply retries."""
     now = now_hkt()
     since = (now - timedelta(days=POST_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    # 0) live: today's meeting in progress -> results race by race (each race ~8 min after its start)
+    for lm in conn.execute(
+            "SELECT m.date, m.venue, MIN(r.post_time) AS first_post, MAX(r.post_time) AS last_post FROM meetings m "
+            "JOIN races r ON r.date=m.date AND r.venue=m.venue WHERE m.date=? AND "
+            "(m.status IS NULL OR m.status NOT IN ('results','abandoned')) GROUP BY m.date, m.venue",
+            (now.strftime("%Y-%m-%d"),)).fetchall():
+        if not lm["first_post"] or not lm["last_post"]:
+            continue
+        if _parse_ts(lm["first_post"]) + LIVE_AFTER <= now < _parse_ts(lm["last_post"]) + POST_DELAY:
+            due, done = _races_due_vs_done(conn, lm["date"], lm["venue"], now)
+            if due > done:
+                try:
+                    cmd_live(conn, lm["date"], lm["venue"])
+                except Exception:
+                    log.exception("tick: live results for %s %s failed (will retry next tick)", lm["date"], lm["venue"])
     # 1) post: any recent meeting whose last race should be over and not yet 'results'
     pend = conn.execute(
         "SELECT m.date, m.venue, MAX(r.post_time) AS last_post FROM meetings m "
@@ -298,6 +344,7 @@ def main(argv=None):
     p = sub.add_parser("post"); p.add_argument("date", nargs="?")
     q = sub.add_parser("pre"); q.add_argument("--force", action="store_true")
     sub.add_parser("scores")
+    lv = sub.add_parser("live"); lv.add_argument("date", nargs="?")
     sub.add_parser("tick")
     t = sub.add_parser("backtest"); t.add_argument("start", nargs="?"); t.add_argument("end", nargs="?")
     sub.add_parser("report")
@@ -322,6 +369,8 @@ def main(argv=None):
             scrape.backfill(conn, args.start, args.end)
         elif args.cmd == "post":
             print(cmd_post(conn, args.date))
+        elif args.cmd == "live":
+            print(cmd_live(conn, args.date or now_hkt().strftime("%Y-%m-%d")))
         elif args.cmd == "scores":
             print(cmd_scores(conn, force=True))
         elif args.cmd == "pre":
