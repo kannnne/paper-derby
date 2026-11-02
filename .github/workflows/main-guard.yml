@@ -1,0 +1,27 @@
+# AI-Brain 軟鎖警報：雲端 Claude 唔應該直接 push main。真係 push 咗就開 issue 同令呢個 run 失敗，GitHub 會通知 Kane。
+# 只係事後警報，唔會阻止，亦唔會自動還原；認嘅係 commit 資料，故意改身份就認唔到。
+# Kane 喺網頁合併 PR 嘅最後一個 commit 由 GitHub 做，所以唔會響。正本：AI-Brain/Scripts/main-guard.yml
+name: main-guard
+on:
+  push:
+    branches: [main, master]
+permissions:
+  issues: write
+jobs:
+  guard:
+    if: >-
+      ${{ github.event.head_commit.committer.email != 'noreply@github.com' &&
+      (contains(toJSON(github.event.commits.*.committer.email), 'noreply@anthropic.com') ||
+      contains(toJSON(github.event.commits.*.message), 'claude.ai/code')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Open alert issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          gh api "repos/$REPO/issues" -f title="警報：雲端 Claude 直接 push 咗 $REF" -f body="Commit $SHA 似係由雲端 Claude 直接 push 去 $REF，違反 AI-Brain 規則。請 Kane 檢查，需要就還原。呢個警報唔會自動還原。"
+          exit 1
