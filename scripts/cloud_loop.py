@@ -33,6 +33,31 @@ def sh(cmd, check=False):
     return r
 
 
+RACING_INTERVAL = 2      # minutes between ticks while a meeting is racing (results race by race)
+
+
+def racing_now(db_path="data/hkjc.db", now=None) -> bool:
+    """True from 10 min before race 1 until 1 h after the last race of today's meeting.
+    Never raises: any problem (missing / locked DB, bad data) -> False (normal interval)."""
+    import sqlite3
+    c = None
+    try:
+        c = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        now = now or datetime.now(HKT).replace(tzinfo=None)
+        row = c.execute("SELECT MIN(post_time), MAX(post_time) FROM races WHERE date=? AND post_time IS NOT NULL",
+                        (now.strftime("%Y-%m-%d"),)).fetchone()
+        if not row or not row[0]:
+            return False
+        first = datetime.strptime(row[0][:16], "%Y-%m-%dT%H:%M")
+        last = datetime.strptime(row[1][:16], "%Y-%m-%dT%H:%M")
+        return first - timedelta(minutes=10) <= now <= last + timedelta(hours=1)
+    except Exception:
+        return False
+    finally:
+        if c is not None:
+            c.close()
+
+
 def code_rev():
     return sh("git rev-parse HEAD:hkjc HEAD:scripts HEAD:.github HEAD:site/app.js HEAD:site/index.html").stdout
 
@@ -82,7 +107,7 @@ def loop(minutes, interval):
         run_tick()
         sh(f"{PY} -m hkjc.health --fix --notify")       # 自動覆核：補救 + GitHub issue 通知
         commit_and_push(f"bot: {datetime.now(HKT):%Y-%m-%d %H:%M} HKT")
-        time.sleep(max(30, interval * 60))
+        time.sleep(max(30, (RACING_INTERVAL if racing_now() else interval) * 60))
     log("loop finished" + (" (restart)" if restart else ""))
 
 

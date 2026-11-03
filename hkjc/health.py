@@ -9,7 +9,8 @@ Checks (all from the DB, no HTTP):
   scores_stale     preview older than 2 h while waiting for the betting run       -> cmd_scores
   pre_missing      past T-2h+20 min, before T-15 min, no betting run              -> cmd_pre
   pre_missed       racing started and there was no betting run (cannot be fixed)
-  live_lagging     a race finished > 20 min ago but its result is not in yet     -> cmd_live
+  live_lagging     a race started > 25 min ago but its full results table is not in (report;
+                   tick keeps re-fetching; alerts only after 75 min)
   post_missing     tracked meeting finished, results in, no post-race analysis   -> cmd_post
   unsettled        open paper tickets on a meeting that has final results       -> paper.settle
   site_stale       site/data/index.json older than the latest run               -> publish
@@ -75,13 +76,13 @@ def check(conn, now=None) -> list[dict]:
                           "ON r.date=m.date AND r.venue=m.venue WHERE m.date=? AND "
                           "(m.status IS NULL OR m.status NOT IN ('results','abandoned')) GROUP BY m.date, m.venue",
                           (today,)).fetchall():
-        late = conn.execute("SELECT COUNT(*) FROM races WHERE date=? AND venue=? AND post_time<=?",
-                            (m["date"], m["venue"], (now - timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M"))).fetchone()[0]
-        done = conn.execute("SELECT COUNT(DISTINCT r.race_id) FROM races r JOIN dividends d ON d.race_id=r.race_id "
-                            "AND d.pool='WIN' WHERE r.date=? AND r.venue=?", (m["date"], m["venue"])).fetchone()[0]
+        # report only: tick's live step is already re-fetching every tick inside its window
+        late, done = cli._races_due_vs_done(conn, m["date"], m["venue"], now, after=timedelta(minutes=25))
+        very_late, _ = cli._races_due_vs_done(conn, m["date"], m["venue"], now, after=timedelta(minutes=75))
         if late > done:
-            add("live_lagging", "warn", f"{m['date']} {m['venue']}：已跑完 {late} 場但只有 {done} 場賽果",
-                "live", date=m["date"], venue=m["venue"])
+            add("live_lagging", "error" if very_late > done else "warn",
+                f"{m['date']} {m['venue']}：開跑超過 25 分鐘嘅有 {late} 場，但只有 {done} 場有完整名次"
+                + ("（有場次超過 75 分鐘）" if very_late > done else ""), None, date=m["date"], venue=m["venue"])
 
     # after racing
     since = (now - timedelta(days=cli.POST_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
@@ -148,18 +149,31 @@ def _gh(*args):
     return subprocess.run(["gh", *args], text=True, capture_output=True)
 
 
+def _signature(issues) -> str:
+    return "<!-- health-sig: " + ";".join(sorted(f"{i['code']}@{i.get('date', '')}{i.get('venue', '')}"
+                                                   for i in issues)) + " -->"
+
+
 def notify(issues, fixed):
-    """Keep one open GitHub issue in sync (GitHub emails the repo owner on new issues)."""
+    """Keep one open GitHub issue in sync (GitHub emails the repo owner on new issues).
+    Only 'error' issues page; a comment is added only when the set of problems changes,
+    so a problem that lasts hours doesn't send an email every tick."""
+    issues = [i for i in issues if i["level"] == "error"]
     r = _gh("issue", "list", "--label", ISSUE_LABEL, "--state", "open", "--json", "number", "--jq", ".[0].number")
     if r is None:
         return "no gh"
     num = (r.stdout or "").strip()
     now = cli.now_hkt().strftime("%Y-%m-%d %H:%M")
     if issues:
+        sig = _signature(issues)
         body = (f"**{now} HKT** 自動覆核發現以下問題（已嘗試自動補救：{', '.join(fixed) or '冇'}）：\n\n" +
-                "\n".join(f"- {'🔴' if i['level'] == 'error' else '🟡'} `{i['code']}` {i['msg']}" for i in issues) +
-                "\n\n系統會每 5 分鐘再覆核；問題解決後呢個 issue 會自動關閉。")
+                "\n".join(f"- 🔴 `{i['code']}` {i['msg']}" for i in issues) +
+                "\n\n系統會繼續覆核；問題有變先會再留言，解決後呢個 issue 會自動關閉。\n" + sig)
         if num:
+            last = _gh("issue", "view", num, "--json", "body,comments", "--jq",
+                       "(.comments | last | .body) // .body")
+            if last is not None and sig in (last.stdout or ""):
+                return f"unchanged #{num}"
             _gh("issue", "comment", num, "--body", body)
             return f"commented #{num}"
         _gh("label", "create", ISSUE_LABEL, "--color", "d73a4a", "--force")

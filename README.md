@@ -25,8 +25,8 @@
 | `data/logs/` | 執行紀錄：`hkjc.log`（主要）、`launchd.out.log` / `launchd.err.log`（排程輸出） |
 | `reports/` | 報告：`YYYY-MM-DD_場地_賽前投注參考.md`、`YYYY-MM-DD_場地_賽後分析.md`、`回測報告.md` |
 | `hkjc/scores.py` / `hkjc/bots.py` / `hkjc/publish.py` | 馬匹評分、10 隻機械人、網站數據匯出 + 發佈 |
-| `site/` | 公開網站（純靜態：`index.html`、`app.js`、`style.css`，數據喺 `site/data/`）；係一個獨立 git repo，只會推呢個資料夾 |
-| `data/publish.json` | 網站發佈設定（預設 `"enabled": false` = 只更新本機 `site/`，唔會上網推送） |
+| `site/` | 公開網站（純靜態：`index.html`、`app.js`、`style.css`，數據喺 `site/data/`）；屬於主 repo，由雲端程式推去 `gh-pages` 分支發佈 |
+| `data/publish.json` | 網站發佈設定（`"git": false`：只匯出 `site/data/`，發佈由雲端程式負責） |
 
 ## 指令
 
@@ -146,42 +146,9 @@ cd "<項目資料夾>"
 
 然後用瀏覽器開 <http://127.0.0.1:8000/>（Ctrl+C 停止）。平時每次 `pre` / `post` 都會自動更新 `site/data/` 同喺 `site/` 入面 commit（`enabled` 係 `false` 時唔會推送）。
 
-### 第一次設定（以下步驟要你自己做，系統唔會幫你開戶口或者處理密碼）
+### 發佈方式（現行）
 
-1. **開 GitHub repo**：登入 GitHub → New repository → 名建議用中性名，例如 `paper-derby`（**唔好**用「HKJC」或者馬會名，免得人以為係官方）→ 揀 **Public** → **唔好**剔「Add a README」（要空 repo）→ Create。注意網址會包含你嘅 GitHub 用戶名。
-2. **俾部 Mac 有權推送**（揀一種）：
-   - **SSH deploy key（建議，只限呢個 repo）**：
-     ```sh
-     ssh-keygen -t ed25519 -f ~/.ssh/paper_derby -N "" -C "paper-derby deploy key"
-     pbcopy < ~/.ssh/paper_derby.pub
-     ```
-     去 repo 嘅 Settings → Deploy keys → Add deploy key，貼上，**剔 Allow write access** → Add key。然後喺 `~/.ssh/config` 加：
-     ```
-     Host github-paper-derby
-       HostName github.com
-       User git
-       IdentityFile ~/.ssh/paper_derby
-       IdentitiesOnly yes
-     ```
-     試吓：`ssh -T github-paper-derby`（第一次會問你信唔信 github.com 嘅 fingerprint，答 yes）。remote 就係 `github-paper-derby:<你的用戶名>/paper-derby.git`。
-     （排程係無人看管咁行，所以呢條 key 唔設密碼；佢只可以寫呢一個 repo。）
-   - **Fine-grained token**：GitHub → Settings → Developer settings → Fine-grained tokens → Generate：Repository access 只揀 `paper-derby`，Permissions → Contents: **Read and write**。之後喺 Terminal 手動推一次（見第 4 步，remote 用 `https://github.com/<你的用戶名>/paper-derby.git`），git 問密碼時貼 token，macOS 會記入「鑰匙圈」。**唔好**將 token 寫入 remote 網址或者任何檔案。
-3. **改 `data/publish.json`**（例子用 SSH）：
-   ```json
-   {"enabled": true, "remote": "github-paper-derby:<你的用戶名>/paper-derby.git", "branch": "main"}
-   ```
-4. **第一次手動發佈**：
-   ```sh
-   cd "<項目資料夾>"
-   .venv/bin/python -c "from hkjc import db, publish; print(publish.publish(db.connect(), '首次發佈'))"
-   ```
-   見到 `'status': 'pushed'` 就得。（用 token 嘅話，第一次改喺 Terminal 行：`git -C site push https://github.com/<你的用戶名>/paper-derby.git HEAD:refs/heads/main`，輸入用戶名 + token，之後自動推送就會用鑰匙圈記住嘅 token。）
-5. **開 Pages**：repo → Settings → Pages → Build and deployment → Source 揀 **Deploy from a branch** → Branch 揀 **main**、資料夾 **/ (root)** → Save。
-6. 大約 1–5 分鐘後網站會喺：`https://<你的用戶名>.github.io/paper-derby/`
-
-之後每次賽前 / 賽後排程都會自動推送。推送失敗（例如斷網、key 失效）只會喺 `data/logs/hkjc.log` 寫 warning，**唔會**影響模擬落注或者報告；下次發佈會一齊補推。想停：將 `enabled` 改返 `false`（或者喺 GitHub 刪 repo / 關 Pages）。
-
-只有 `site/` 資料夾會推上去（佢係獨立 git repo），`data/hkjc.db`、報告、log、模型都唔會上傳。commit 作者係中性嘅「Paper Derby Bot」，唔會用你嘅名或電郵。網站大細：每個賽馬日約 150 KB，一季約 15 MB，GitHub Pages 冇問題。
+網站已經設定好，唔使再做任何步驟：雲端程式（見下面「雲端 24/7 運行」）每次有新數據就將 `site/` 推去 repo 嘅 `gh-pages` 分支，GitHub Pages 設定為由 `gh-pages` 分支根目錄發佈（Settings → Pages，2026-10-21 已設好）。只有 `site/` 嘅內容會上網站；`data/hkjc.db` 本身唔會上傳（數據以文字形式喺 `data/db/`，repo 係公開）。commit 作者係中性嘅「Paper Derby Bot」。
 
 ## 注意事項（請務必閱讀）
 
@@ -195,9 +162,11 @@ cd "<項目資料夾>"
 
 - Repo：`kannnne/paper-derby`（公開）。公開網站：https://kannnne.github.io/paper-derby/
 - **評分**：馬會一開售賠率（通常賽前一日）就計評分並更新網站，之後大約每小時用最新賠率重計，直到開跑前 2 小時嘅正式賽前流程（落模擬注、出今日精選）。手動：`python -m hkjc scores`。
-- `.github/workflows/race-bot.yml` 每 30 分鐘（香港時間 08:00–01:59）喺 GitHub 伺服器跑一次 `python -m hkjc tick`，自動做賽前（第一場前 2 小時）同賽後（最後一場後約 45 分鐘）流程，然後 commit 數據並重新發佈網站。關機都照跑。
+- `.github/workflows/race-bot.yml` 係一個**持續運行**嘅雲端程式（`scripts/cloud_loop.py`）：平時每 5 分鐘、賽馬進行期間每 2 分鐘跑一次 `python -m hkjc tick`，跑大約 5.5 小時就自動開下一段接力（GitHub 內置排程會遲幾個鐘，所以唔靠佢）。有新數據就 commit 並推網站去 `gh-pages`。關機都照跑。
+- **即時賽果**：每場開跑後約 5 分鐘開始抓；完整名次表未出（馬會初步只出派彩同頭四名）就每次檢查再抓，一齊就更新網站同結算。
+- **自動覆核**：每次檢查後跑 `python -m hkjc.health --fix --notify`，發現漏咗步驟會自動補救；補救唔到嘅嚴重問題就喺 GitHub 開 `health` issue（GitHub 會電郵通知；問題有變先再留言）。`watchdog.yml` 每 20 分鐘睇雲端程式有冇運行，冇就重新啟動。另有 claude.ai 上嘅 Claude 覆核代理（routine，唔喺 repo 入面）每 3 小時獨立檢查一次。
 - 資料庫以文字形式存喺 `data/db/*.sql`（每次運行前還原、運行後匯出）；模型每次喺雲端重新訓練，唔存入 git。
-- 手動觸發：GitHub → Actions → race-bot → Run workflow（command 可填 `tick` / `probe` / `report`）。
+- 手動觸發：GitHub → Actions → race-bot → Run workflow（command 預設 `loop`；亦可填 `tick` / `live` / `post` / `scores` / `probe` / `report` 單次運行）。
 - 本機想睇最新數據：`git pull` 之後 `.venv/bin/python -m hkjc.dbdump load data/db data/hkjc.db`。
 - Mac 本機排程已停用（避免雙重落注）。如要改返用本機，先喺 GitHub 停用 workflow，再跑 `scripts/install_scheduler.sh`。
-- 注意：GitHub 排程繁忙時可能延遲 5–30 分鐘；公開 repo 連續 60 日冇活動會被暫停排程（賽季期間每次賽馬日都有 commit，唔會觸發）。
+- 注意：公開 repo 連續 60 日冇活動，GitHub 會暫停排程（賽季期間每次賽馬日都有 commit，唔會觸發）。

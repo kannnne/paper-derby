@@ -53,9 +53,15 @@ def test_pre_race_checks(conn, monkeypatch):
 
 def test_live_and_post_checks(conn, monkeypatch):
     _run(conn, "pre_bet", "2026-10-21T16:41:00")
-    _at(monkeypatch, "2026-10-21 19:05")                     # race 1 started 25 min ago, no result
+    _at(monkeypatch, "2026-10-21 19:06")                     # race 1 started 26 min ago, no result
     assert _codes(conn) == ["live_lagging"]
     conn.execute("INSERT INTO dividends (race_id, pool, combination, dividend) VALUES ('20261021-HV-01','WIN','1',50)")
+    conn.commit()
+    assert _codes(conn) == ["live_lagging"]                  # dividends only (preliminary) is still lagging
+    conn.execute("INSERT INTO runners (race_id, horse_no, finish_pos) VALUES ('20261021-HV-01',1,1)")
+    conn.commit()
+    assert _codes(conn) == []                                # full table in
+    conn.execute("INSERT OR REPLACE INTO dividends (race_id, pool, combination, dividend) VALUES ('20261021-HV-01','WIN','1',50)")
     conn.execute("INSERT INTO dividends (race_id, pool, combination, dividend) VALUES ('20261021-HV-02','WIN','2',50)")
     conn.execute("UPDATE meetings SET status='results'")
     conn.execute("INSERT INTO paper_tickets (date, venue, strategy, legs, total_stake, status) VALUES (?,?,?,?,?, 'open')",
@@ -75,3 +81,32 @@ def test_fix_dispatches_and_reports(conn, monkeypatch):
                         cli._record_run(c, "post-x", "post_analysis", D, V, {})))
     issues = health.run(conn, do_fix=True)
     assert called == [D] and issues == []
+
+
+def test_notify_only_errors_and_only_on_change(monkeypatch):
+    """No email storm: warnings never page; an open issue gets a comment only when problems change."""
+    calls = []
+    state = {"last": ""}
+
+    class R:
+        def __init__(self, out=""):
+            self.stdout = out
+
+    def fake_gh(*args):
+        calls.append(args[:2])
+        if args[:2] == ("issue", "list"):
+            return R("7")
+        if args[:2] == ("issue", "view"):
+            return R(state["last"])
+        if args[:2] == ("issue", "comment"):
+            state["last"] = args[args.index("--body") + 1]
+        return R()
+
+    monkeypatch.setattr(health, "_gh", fake_gh)
+    _at(monkeypatch, "2026-10-21 20:00")
+    warn = [{"code": "live_lagging", "level": "warn", "msg": "x", "date": D, "venue": V}]
+    err = [{"code": "post_missing", "level": "error", "msg": "y", "date": D, "venue": V}]
+    assert health.notify(warn, []).startswith("closed")           # warnings alone: nothing to page
+    assert health.notify(err, []) == "commented #7"
+    assert health.notify(err, []) == "unchanged #7"               # same problem next tick: no new email
+    assert health.notify(err + [{**err[0], "code": "unsettled"}], []) == "commented #7"

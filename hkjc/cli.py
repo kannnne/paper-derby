@@ -26,7 +26,7 @@ REPORT_DIR = Path(os.environ.get("HKJC_REPORT_DIR") or ROOT / "reports")
 PRE_LEAD = timedelta(hours=2)        # 第一場開跑前 2 小時
 PRE_LATEST = timedelta(minutes=15)   # 錯過咗都最遲開跑前 15 分鐘補做（之後只出參考報告、唔落模擬注）
 POST_DELAY = timedelta(minutes=45)   # 最後一場開跑後 45 分鐘先抓賽果
-LIVE_AFTER = timedelta(minutes=8)     # 每場開跑後約 8 分鐘開始抓嗰場賽果（即時更新）
+LIVE_AFTER = timedelta(minutes=5)     # 每場開跑後約 5 分鐘開始抓嗰場賽果；完整名次表未出就每次 tick 再抓
 POST_LOOKBACK_DAYS = 7               # tick 只會自動重試最近 7 日未完成嘅賽馬日
 NO_RESULTS_GIVE_UP_DAYS = 2          # 賽馬日過咗 2 日都完全冇賽果頁 -> 當取消 (abandoned)
 SCORES_REFRESH = timedelta(minutes=55)    # 賠率開售後、落注前：大約每小時用最新賠率更新評分
@@ -152,13 +152,23 @@ def cmd_scores(conn, mtg=None, force=False):
     return k
 
 
-def _races_due_vs_done(conn, date, venue, now):
-    """(races whose result should be out by now, races that already have a WIN dividend)."""
+# A race counts as done only when its FULL results table is in (placings for the site);
+# the preliminary page (dividends + top 4 only, ~10 min after the start) is not enough.
+# (Void races are removed from `races` by the scraper, so they are never counted as due.)
+DONE_RACES_SQL = (
+    "SELECT COUNT(*) FROM races r WHERE r.date=? AND r.venue=? AND ("
+    "EXISTS (SELECT 1 FROM runners u WHERE u.race_id=r.race_id AND u.finish_pos=1) OR "
+    "EXISTS (SELECT 1 FROM dividends d WHERE d.race_id=r.race_id AND d.pool='WIN' AND d.combination='REFUND'))")
+WIN_RACES_SQL = ("SELECT COUNT(DISTINCT r.race_id) FROM races r JOIN dividends d ON d.race_id=r.race_id "
+                 "AND d.pool='WIN' WHERE r.date=? AND r.venue=?")
+
+
+def _races_due_vs_done(conn, date, venue, now, after=None):
+    """(races that started at least ``after`` (default LIVE_AFTER) ago, races with full results)."""
+    cut = (now - (after or LIVE_AFTER)).strftime("%Y-%m-%dT%H:%M")
     due = conn.execute("SELECT COUNT(*) FROM races WHERE date=? AND venue=? AND post_time IS NOT NULL "
-                       "AND post_time<=?", (date, venue, (now - LIVE_AFTER).strftime("%Y-%m-%dT%H:%M"))).fetchone()[0]
-    done = conn.execute("SELECT COUNT(DISTINCT r.race_id) FROM races r JOIN dividends d ON d.race_id=r.race_id "
-                        "AND d.pool='WIN' WHERE r.date=? AND r.venue=?", (date, venue)).fetchone()[0]
-    return due, done
+                       "AND post_time<=?", (date, venue, cut)).fetchone()[0]
+    return due, conn.execute(DONE_RACES_SQL, (date, venue)).fetchone()[0]
 
 
 def cmd_live(conn, date, venue=None):
@@ -169,15 +179,18 @@ def cmd_live(conn, date, venue=None):
                        (date, venue) if venue else (date,)).fetchone()
     venue = venue or (row["venue"] if row else None)
     before = _races_due_vs_done(conn, date, venue, now_hkt())[1] if venue else 0
+    wins_before = conn.execute(WIN_RACES_SQL, (date, venue)).fetchone()[0] if venue else 0
     n = scrape.scrape_meeting_results(conn, date, venue, refresh=True)
     if not n:
         log.info("live results %s: none yet", date)
         return 0
     venue = venue or conn.execute("SELECT venue FROM meetings WHERE date=?", (date,)).fetchone()["venue"]
     after = _races_due_vs_done(conn, date, venue, now_hkt())[1]
+    wins_after = conn.execute(WIN_RACES_SQL, (date, venue)).fetchone()[0]
     settled = paper.settle(conn, date)
-    log.info("live results %s %s: %s races with results (was %s), %s tickets settled", date, venue, after, before, settled)
-    if after != before or settled:
+    log.info("live results %s %s: %s races with full results (was %s), %s with dividends (was %s), %s tickets settled",
+             date, venue, after, before, wins_after, wins_before, settled)
+    if after != before or wins_after != wins_before or settled:
         _publish(conn, f"即時賽果 {date} {venue} 第{after}場")
     return after
 

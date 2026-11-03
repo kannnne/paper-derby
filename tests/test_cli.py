@@ -366,7 +366,8 @@ def test_tick_runs_scores_preview_before_bet_window(tmp_path, monkeypatch):
 
 
 def test_tick_live_results_during_meeting(tmp_path, monkeypatch):
-    """While races are running, tick fetches results race by race (no waiting for the last race)."""
+    """While races are running, tick fetches results race by race and keeps re-fetching a race
+    until its FULL results table (placings) is in - dividends alone (preliminary page) don't count."""
     from datetime import datetime
     from hkjc import cli
     from hkjc.db import connect
@@ -380,25 +381,35 @@ def test_tick_live_results_during_meeting(tmp_path, monkeypatch):
     conn.execute("INSERT INTO runs (run_id, kind, date, venue, created_at) VALUES ('p','pre_bet','2026-10-21','HV','x')")
     conn.commit()
     calls = []
+    page = {"full": False}
 
     def fake_live(c, date, venue=None):
         calls.append(date)
         c.execute("INSERT OR REPLACE INTO dividends (race_id, pool, combination, dividend) VALUES ('20261021-HV-01','WIN','1',50)")
+        if page["full"]:
+            c.execute("INSERT OR REPLACE INTO runners (race_id, horse_no, finish_pos) VALUES ('20261021-HV-01',1,1)")
         c.commit()
         return 1
 
     monkeypatch.setattr(cli, "cmd_live", fake_live)
     monkeypatch.setattr(cli, "_next_meeting", lambda c, now: None)
-    clock = {"t": datetime(2026, 10, 21, 18, 45)}           # race 1 just started: too early
+    clock = {"t": datetime(2026, 10, 21, 18, 43)}           # race 1 started 3 min ago: too early
     monkeypatch.setattr(cli, "now_hkt", lambda: clock["t"])
     cli.cmd_tick(conn)
     assert calls == []
-    clock["t"] = datetime(2026, 10, 21, 18, 50)             # race 1 + 10 min: fetch
+    clock["t"] = datetime(2026, 10, 21, 18, 46)             # race 1 + 6 min: fetch (preliminary page only)
     cli.cmd_tick(conn)
-    assert calls == ["2026-10-21"]
-    clock["t"] = datetime(2026, 10, 21, 19, 5)              # race 1 already has results, race 2 not due
+    assert len(calls) == 1
+    clock["t"] = datetime(2026, 10, 21, 18, 48)             # dividends in but no placings yet: fetch again
     cli.cmd_tick(conn)
-    assert calls == ["2026-10-21"]
-    clock["t"] = datetime(2026, 10, 21, 19, 20)             # race 2 due
+    assert len(calls) == 2
+    page["full"] = True
+    clock["t"] = datetime(2026, 10, 21, 18, 50)             # full table arrives
     cli.cmd_tick(conn)
-    assert calls == ["2026-10-21", "2026-10-21"]
+    assert len(calls) == 3
+    clock["t"] = datetime(2026, 10, 21, 19, 5)              # race 1 complete, race 2 not due: nothing
+    cli.cmd_tick(conn)
+    assert len(calls) == 3
+    clock["t"] = datetime(2026, 10, 21, 19, 16)             # race 2 due
+    cli.cmd_tick(conn)
+    assert len(calls) == 4
