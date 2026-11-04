@@ -43657,7 +43657,11 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,8,6,11',650
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,8,6',3401,'TCE','20261104-HV-08');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,6,8',425,'TRI','20261104-HV-08');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2',116.5,'WIN','20261104-HV-08');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2/1',51.5,'DBL','20261104-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2/10',943.5,'DBL','20261104-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,6,8/1,7,10',9794,'DT','20261104-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10,1',202,'FCT','20261104-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,7,9,10',458,'FF','20261104-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1',13.5,'PLA','20261104-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10',19,'PLA','20261104-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('7',20.5,'PLA','20261104-HV-09');
@@ -43665,5 +43669,10 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,10',92.5,'Q
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,10',38,'QPL','20261104-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,7',36,'QPL','20261104-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('7,10',61,'QPL','20261104-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10,1,7,9',13180,'QTT','20261104-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('6,7/8,11/1,12/8,10/2,8/1,10',4215,'SIXUP','20261104-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8/2/1',301,'TBL','20261104-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8/2/10',2654,'TBL','20261104-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10,1,7',1155,'TCE','20261104-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,7,10',192,'TRI','20261104-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10',52,'WIN','20261104-HV-09');
