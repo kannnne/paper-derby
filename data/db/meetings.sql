@@ -280,4 +280,4 @@ INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-1
 INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-10-28','2026-10-28T18:45',9,'results','ST');
 INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-11-01','2026-11-01T12:45',10,'results','HV');
 INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-11-04','2026-11-04T18:40',9,'results','HV');
-INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-11-08','2026-11-08T12:30',11,'scheduled','ST');
+INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-11-08','2026-11-08T12:30',11,'card','ST');
