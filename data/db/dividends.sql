@@ -43802,6 +43802,11 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('7,8,4,10',232
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('7,8,4',23188,'TCE','20261108-ST-08');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('4,7,8',3408,'TRI','20261108-ST-08');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('7',130.5,'WIN','20261108-ST-08');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('7/6',75.5,'DBL','20261108-ST-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('7/8',6637.5,'DBL','20261108-ST-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('4,7,8/3,6,8',244756,'DT','20261108-ST-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8,6',1424,'FCT','20261108-ST-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,6,8,12',2798,'FF','20261108-ST-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3',33,'PLA','20261108-ST-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('6',12.5,'PLA','20261108-ST-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8',84,'PLA','20261108-ST-09');
@@ -43809,4 +43814,7 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('6,8',404.5,'Q
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,6',63.5,'QPL','20261108-ST-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,8',651.5,'QPL','20261108-ST-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('6,8',152,'QPL','20261108-ST-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8,6,3,12',137200,'QTT','20261108-ST-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8,6,3',14055,'TCE','20261108-ST-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,6,8',1565,'TRI','20261108-ST-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8',389,'WIN','20261108-ST-09');
