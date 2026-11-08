@@ -43704,8 +43704,11 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8,5,1,7',6770
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8,5,1',20139,'TCE','20261108-ST-02');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,5,8',3044,'TRI','20261108-ST-02');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8',263,'WIN','20261108-ST-02');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8/1',1512.5,'DBL','20261108-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8/8',248.5,'DBL','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,5,8/1,5,8',151515,'DT','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,8',355,'FCT','20261108-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,5,8,10',1152,'FF','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1',18,'PLA','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('5',30.5,'PLA','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8',23.5,'PLA','20261108-ST-03');
@@ -43713,6 +43716,7 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,8',197.5,'Q
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,5',88.5,'QPL','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,8',68,'QPL','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('5,8',129.5,'QPL','20261108-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,8,5,10',19482,'QTT','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,8,5',1808,'TCE','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,5,8',313,'TRI','20261108-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1',44.5,'WIN','20261108-ST-03');
