@@ -1072,3 +1072,11 @@ INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES 
 INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,9742.5,'favourite',1072,'派彩 favourite:WIN #5',510,'2026-11-11T20:49:37');
 INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (14.5,9757,'favourite',1073,'派彩 favourite:PLA #5',511,'2026-11-11T20:49:37');
 INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (44,10061,'monkey',1074,'派彩 monkey:PLA #5',524,'2026-11-11T20:49:37');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (21.5,9848,'place_only',1075,'派彩 place_only:PLA #6',484,'2026-11-11T21:17:01');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (119,7012.77,'fixed_combo',1076,'派彩 fixed_combo:QPL_2x3 #2',489,'2026-11-11T21:17:01');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (119,9701.5,'qpl_box',1077,'派彩 qpl_box:QPL #6',497,'2026-11-11T21:17:01');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,9757,'favourite',1078,'派彩 favourite:WIN #6',512,'2026-11-11T21:17:01');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,9757,'favourite',1079,'派彩 favourite:PLA #6',513,'2026-11-11T21:17:01');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,10061,'monkey',1080,'派彩 monkey:PLA #6',525,'2026-11-11T21:17:01');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (119,6484.77,'daily_picks',1081,'派彩 daily_picks:QPL_2x3 #3',531,'2026-11-11T21:17:01');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (240,6724.77,'daily_picks',1082,'派彩 daily_picks:QTT #15',543,'2026-11-11T21:17:01');
