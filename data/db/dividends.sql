@@ -43977,7 +43977,11 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,11,4,10',31
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,11,4',37628,'TCE','20261111-HV-08');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,4,11',6200,'TRI','20261111-HV-08');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1',105.5,'WIN','20261111-HV-08');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1/3',1045.5,'DBL','20261111-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1/7',220,'DBL','20261111-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,4,11/2,3,7',2540870,'DT','20261111-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,7',1246,'FCT','20261111-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,3,5,7',13128,'FF','20261111-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2',108.5,'PLA','20261111-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3',30.5,'PLA','20261111-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('7',33,'PLA','20261111-HV-09');
@@ -43985,6 +43989,7 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,7',542,'QIN
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,3',638,'QPL','20261111-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,7',672,'QPL','20261111-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,7',174.5,'QPL','20261111-HV-09');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,7,2,5',552087,'QTT','20261111-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('11/8/11/5/1/3',2310151,'SIXUP','20261111-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('7,11/8,10/7,11/5,7/1,11/3,7',17853,'SIXUP','20261111-HV-09');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('5/1/3',2815,'TBL','20261111-HV-09');
