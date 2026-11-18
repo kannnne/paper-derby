@@ -1337,3 +1337,13 @@ INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES 
 INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (31.5,9591,'favourite',1337,'派彩 favourite:WIN #1',651,'2026-11-18T18:46:37');
 INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (14,9605,'favourite',1338,'派彩 favourite:PLA #1',652,'2026-11-18T18:46:37');
 INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,10025.5,'monkey',1339,'派彩 monkey:PLA #1',669,'2026-11-18T18:46:37');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,9785,'place_only',1340,'派彩 place_only:PLA #2',624,'2026-11-18T19:16:16');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,5234.19,'fixed_combo',1341,'派彩 fixed_combo:QPL_2x3 #1',632,'2026-11-18T19:16:16');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,9378.5,'qpl_box',1342,'派彩 qpl_box:QPL #2',640,'2026-11-18T19:16:16');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (40,9712,'tri_banker',1343,'派彩 tri_banker:TRI #2',649,'2026-11-18T19:16:16');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,9605,'favourite',1344,'派彩 favourite:WIN #2',653,'2026-11-18T19:16:16');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,9605,'favourite',1345,'派彩 favourite:PLA #2',654,'2026-11-18T19:16:16');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,10025.5,'monkey',1346,'派彩 monkey:PLA #2',670,'2026-11-18T19:16:16');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,3762.69,'daily_picks',1347,'派彩 daily_picks:QPL_2x3 #2',679,'2026-11-18T19:16:16');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (0,3762.69,'daily_picks',1348,'派彩 daily_picks:WIN #6',683,'2026-11-18T19:16:16');
+INSERT INTO bankroll_ledger (amount,balance,bot_id,id,note,ticket_id,ts) VALUES (240,4002.69,'daily_picks',1349,'派彩 daily_picks:QTT #15',692,'2026-11-18T19:16:16');
