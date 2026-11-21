@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant-HK" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>跑道機械人 · 模擬賽馬研究</title>
+  <meta name="description" content="香港賽馬數據分析同 11 隻模擬投注機械人嘅公開紀錄。純屬模擬研究，非投注建議，與任何賽馬機構無關。">
+  <meta name="theme-color" content="#07111f">
+  <meta name="robots" content="index,follow">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="stylesheet" href="style.css?v=14">
+  <script>
+    try { var t = localStorage.getItem("pd-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <a class="sr-only" href="#app">跳到主要內容</a>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="#/">
+        <img src="assets/logo.svg" alt="" width="34" height="34">
+        <span><b>跑道機械人</b><small>模擬賽馬研究 · PAPER DERBY</small></span>
+      </a>
+      <nav class="nav" aria-label="主選單">
+        <a href="#/" data-nav="home">首頁</a>
+        <a href="#/meeting" data-nav="meeting">賽馬日</a>
+        <a href="#/bots" data-nav="bots">機械人</a>
+        <a href="#/about" data-nav="about">說明</a>
+      </nav>
+      <button class="theme-btn" id="theme-btn" type="button" aria-label="切換深色／淺色">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+  </header>
+  <main id="app" class="wrap" tabindex="-1">
+    <div class="loading">載入中…</div>
+  </main>
+  <footer class="foot">
+    <div class="wrap">
+      <p class="disc">模擬研究，非投注建議；未滿18歲不得投注；博彩要有節制，如需協助可致電平和基金熱線 1834 633。</p>
+      <p>本網站只記錄電腦模擬（paper trade）結果，從未落任何真實投注；與香港賽馬會或任何賽馬機構無關，並非官方網站。賽事資料來自公開網頁，可能有誤，請以官方公佈為準。</p>
+      <p id="foot-updated"></p>
+    </div>
+  </footer>
+  <noscript><p class="wrap">本網站需要 JavaScript 先可以顯示數據。</p></noscript>
+  <script src="app.js?v=21" defer></script>
+</body>
+</html>
