@@ -44348,6 +44348,11 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10,14,11,3',1
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10,14,11',4147,'TCE','20261122-ST-02');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10,11,14',925,'TRI','20261122-ST-02');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10',34.5,'WIN','20261122-ST-02');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10/1,3,6',58.5,'DBL','20261122-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10/8',69.5,'DBL','20261122-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10,11,14/1,3,4,6,8',5263,'DT','20261122-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,8',105,'FCT','20261122-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,3,4,8',157,'FF','20261122-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3',12.5,'PLA','20261122-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('4',20,'PLA','20261122-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8',16,'PLA','20261122-ST-03');
@@ -44355,4 +44360,7 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,8',66,'QIN'
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,4',34,'QPL','20261122-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,8',27.5,'QPL','20261122-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('4,8',45.5,'QPL','20261122-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,8,4,2',1991,'QTT','20261122-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,8,4',347,'TCE','20261122-ST-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3,4,8',101,'TRI','20261122-ST-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('3',23.5,'WIN','20261122-ST-03');
