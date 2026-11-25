@@ -44522,7 +44522,11 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,3,4,2',2481
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,3,4',6326,'TCE','20261125-HV-02');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,3,4',1893,'TRI','20261125-HV-02');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1',32.5,'WIN','20261125-HV-02');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1/2',71,'DBL','20261125-HV-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1/8',210,'DBL','20261125-HV-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('1,3,4/2,8,10',1144058,'DT','20261125-HV-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8,2',538,'FCT','20261125-HV-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,4,8,10',12354,'FF','20261125-HV-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('10',172.5,'PLA','20261125-HV-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2',32,'PLA','20261125-HV-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8',20,'PLA','20261125-HV-03');
@@ -44530,6 +44534,7 @@ INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,8',285.5,'Q
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,10',1363.5,'QPL','20261125-HV-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,8',100,'QPL','20261125-HV-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8,10',781.5,'QPL','20261125-HV-03');
+INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8,2,10,4',407075,'QTT','20261125-HV-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8,2,10',28066,'TCE','20261125-HV-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('2,8,10',8121,'TRI','20261125-HV-03');
 INSERT INTO dividends (combination,dividend,pool,race_id) VALUES ('8',53,'WIN','20261125-HV-03');
