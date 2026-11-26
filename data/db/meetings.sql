@@ -286,3 +286,4 @@ INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-1
 INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-11-18','2026-11-18T18:40',9,'results','HV');
 INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-11-22','2026-11-22T12:30',11,'results','ST');
 INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-11-25','2026-11-25T18:40',9,'results','HV');
+INSERT INTO meetings (date,first_post_time,n_races,status,venue) VALUES ('2026-11-29','2026-11-29T12:45',11,'scheduled','ST');
