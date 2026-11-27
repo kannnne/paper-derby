@@ -149,10 +149,14 @@ def test_betting_run_supersedes_preview(conn, stubs, tmp_path, monkeypatch):
     cli._record_run(conn, "pre-real", "pre_bet", D, V, {})
     assert conn.execute("SELECT COUNT(*) FROM bot_decisions WHERE run_id='score-a'").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM picks WHERE run_id='score-a'").fetchone()[0] == 0
-    assert conn.execute("SELECT COUNT(*) FROM paper_tickets").fetchone()[0] > 0
+    # per-race late betting: T-2h places only multi-race tickets; single-race rows are 'pending'
+    tks = conn.execute("SELECT legs FROM paper_tickets").fetchall()
+    assert all(len({l["race_no"] for l in json.loads(t[0])}) > 1 for t in tks)
+    assert conn.execute("SELECT COUNT(*) FROM bot_decisions WHERE run_id='pre-real' AND action='pending'"
+                        ).fetchone()[0] > 0
     m = publish.export_meeting(conn, D, V)
     assert m["preview"] is False and m["picks"]["preview"] is False
-    assert all(t["status"] == "open" for b in m["bots"] for t in b["tickets"])
+    assert all(t["status"] in ("open", "pending") for b in m["bots"] for t in b["tickets"])
     assert m["decisions_run_id"] == "pre-real"
     # a later forced preview never mixes with the real decisions
     assert pipeline.preview_decisions(conn, "score-late", D, V, pred, odds) == 0

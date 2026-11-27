@@ -24,8 +24,8 @@ def _db(tmp_path, posts, date=None):
 def test_racing_window(tmp_path):
     db = _db(tmp_path, ["2026-11-04T18:40", "2026-11-04T22:50"])
     at = lambda s: cloud_loop.racing_now(db, datetime.strptime(s, "%Y-%m-%d %H:%M"))
-    assert not at("2026-11-04 18:29")
-    assert at("2026-11-04 18:30")          # 10 min before race 1
+    assert not at("2026-11-04 18:24")
+    assert at("2026-11-04 18:25")          # 15 min before race 1
     assert at("2026-11-04 20:00")
     assert at("2026-11-04 23:50")          # last race + 1 h (inclusive)
     assert not at("2026-11-04 23:51")

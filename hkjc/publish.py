@@ -9,7 +9,8 @@ Files written (formats per SPEC_V2 "Dashboard"; additions are marked [+] below):
     {updated_at, disclaimer, next_meeting:{date, venue, first_post_time, [+]venue_zh, [+]n_races},
      meetings:[{date, venue, status, file, [+]venue_zh, [+]n_races, [+]has_scores, [+]has_decisions,
                 [+]has_picks}],
-     bots:[{id, name, style, description, bankroll, start_bankroll,
+     bots:[{id, name, style, description, bankroll (may be NEGATIVE for an uncapped robot), start_bankroll,
+            [+]uncapped (bool: not limited by its bankroll, e.g. daily_picks), [+]note (中文, '' if none),
             live:{n_meetings, stake, returns, profit, roi, hit_rate, [+]n_tickets, [+]open_stake},
             [+]no (saddle-cloth number 1..10)}],
      [+]score_explanation (中文, from scores.SCORE_EXPLANATION_ZH when available),
@@ -71,6 +72,26 @@ curves in bot_history.json) are deliberately NOT exported any more - the public 
 live (paper) results only.  ``data/bot_backtest.json`` (hkjc.bots.backtest_bots) stays an internal
 research file and is never read here.
 
+[+] 待定（單場開跑前約 8 分鐘先決定）: single-race bets are decided ~8 minutes before EACH race with the
+latest odds; multi-race bets (過關, 孖寶, 三寶, 6x63, 位置Q 2x3) stay at T-2h.  The T-2h pre_bet run writes
+single-race rows with ``action='pending'`` (structure/selections/stake/reason = the current preview; reason
+starts 「待定（開跑前約 8 分鐘用最新賠率決定）而家預覽：」); each race's decision run (runs.kind 'race_bet') later
+replaces them, in the same run_id, by normal bet/skip rows (+ tickets), or by a skip 「錯過開跑前落注時間，冇落注」
+when the window was missed.  Export:
+  * meeting ``bots[].tickets`` get pseudo-tickets for pending rows with a stake ({status:'pending', ticket_id:null,
+    payout:null, pending:true, decide_at:'YYYY-MM-DDTHH:MM'}); pending rows without a stake (preview says 唔買)
+    go to ``bots[].skips`` with ``pending:true`` + ``decide_at``; missed skips carry ``missed:true``.
+    ``bots[]`` gain ``n_pending`` / ``pending_stake``; pending stakes are NOT in ``stake`` / ``n_tickets``, never in
+    bankrolls, live stats, the leaderboard or bots/<id>.json (same as preview).  On a results meeting a
+    left-over pending row is shown as a missed skip.
+  * decisions carry ``action:'pending'``, ``ticket_status:'pending'``, ``pending:true``, ``decide_at``.
+  * meeting: ``pending`` (bool), ``pending_races`` [race_no...], ``next_decide_at``; index meetings[] ``has_pending``.
+  * picks items pass through ``status`` ('pending'|'final'|'missed'), ``decide_at`` (pending), ``decided_at``
+    (final single-race); picks gain ``n_pending`` / ``n_missed`` / ``next_decide_at``; missed items (nothing bought)
+    are left out of ``total_stake`` and the totals and get no (hypothetical) result.
+  * index.json: ``bots[].n_meetings`` (= live.n_meetings, settled meetings), ``n_settled_meetings`` (meetings with
+    settled robot tickets) and ``sample_note`` (中文 small-sample warning while that is < SAMPLE_MIN, else null).
+
 [+] 預覽（未落注）: before the T-2h betting run, cli.cmd_scores (run kind 'pre_scores') stores every robot's
 decisions (bot_decisions, ticket_id NULL) and the 今日精選 picks under the preview run.  Such a meeting
 file has ``preview: true`` + ``preview_at``; robot cards carry pseudo-tickets ({status:'preview',
@@ -119,6 +140,16 @@ SUB_SCORE_KEYS = ["form", "jockey", "trainer", "combo", "draw", "fit", "class", 
 SUB_SCORE_LABELS = {"form": "往績", "jockey": "騎師", "trainer": "練馬師", "combo": "騎練",
                     "draw": "檔位", "fit": "適應", "class": "班次負磅", "market": "市場"}
 RESULT_POOLS = ["WIN", "PLA", "QIN", "QPL", "FCT", "TRI", "TCE", "FF", "QTT"]
+DECIDE_MINUTES = 8               # single-race bets: decided ~8 minutes before each race (latest odds)
+MISSED_PREFIX = "錯過開跑前落注時間"
+MISSED_LEFTOVER = "錯過開跑前落注時間，冇落注"
+SAMPLE_MIN = 30                  # settled meetings below which the site shows the small-sample notice
+# robots that are NOT limited by their bankroll (it may go negative): index bots[].uncapped + note
+UNCAPPED_NOTE = "追蹤用：唔受資金限制，照買晒每項精選"
+try:
+    from .bots import NO_BANKROLL_LIMIT as UNCAPPED_BOTS     # single source of truth
+except Exception:                                             # pragma: no cover
+    UNCAPPED_BOTS = {"daily_picks"}
 
 # Used only when hkjc/bots.py is unavailable (order = saddle-cloth number).
 FALLBACK_BOTS = [
@@ -274,10 +305,14 @@ def bot_meta() -> list[dict]:
         log.debug("hkjc.bots unavailable (%s); using fallback robot list", e)
     out = []
     for i, b in enumerate(src, 1):
+        cfg = b.get("config") or {}
+        uncapped = b["id"] in UNCAPPED_BOTS or bool(cfg.get("uncapped") or cfg.get("ignore_bankroll")
+                                                     or b.get("uncapped"))
         out.append({"id": b["id"], "no": i,
                     "name": b.get("name_zh") or b.get("name") or b["id"],
                     "style": b.get("style_zh") or b.get("style") or "",
-                    "description": b.get("description_zh") or b.get("description") or ""})
+                    "description": b.get("description_zh") or b.get("description") or "",
+                    "uncapped": uncapped, "note": (b.get("note_zh") or UNCAPPED_NOTE) if uncapped else ""})
     return out
 
 
@@ -418,6 +453,25 @@ def _reason_txt(s) -> str:
     return s.replace("見第0場跨場決定", "見「過關決定」").replace("見第0場", "見「過關決定」")
 
 
+def _decide_at(post_time) -> str | None:
+    """'YYYY-MM-DDTHH:MM' about DECIDE_MINUTES before ``post_time`` (None when unknown)."""
+    try:
+        t = datetime.fromisoformat(str(post_time)[:16])
+    except (TypeError, ValueError):
+        return None
+    from datetime import timedelta
+    return (t - timedelta(minutes=DECIDE_MINUTES)).isoformat(timespec="minutes")
+
+
+def sample_note(n: int) -> str | None:
+    """Small-sample notice (中文) while fewer than SAMPLE_MIN meetings are settled, else None."""
+    if n >= SAMPLE_MIN:
+        return None
+    if n <= 0:
+        return "暫時未有已結算嘅賽馬日，樣本仲細，短期輸贏好受運氣影響。"
+    return f"暫時只有 {n} 個賽馬日，樣本仲細，短期輸贏好受運氣影響。"
+
+
 def _strategy_structure(strategy, legs) -> str:
     code = str(strategy or "").split(":")[-1]
     pool = ((legs[0].get("pool") if legs else None) or code.split("_")[0] or "").upper()
@@ -494,6 +548,15 @@ def _preview_ticket(r) -> dict:
             "race_no": int(r["race_no"]) if len(legs) == 1 or int(r["race_no"]) == 0 else 0,
             "structure": r["structure"] or "", "selections": sel, "leg_hits": [None] * len(legs), "hit": None,
             "preview": True}
+
+
+def _pending_ticket(r, decide_at) -> dict:
+    """A 'pending' decision row (single race, decided ~8 min before the race) as a ticket-shaped dict:
+    status 'pending', no payout; structure/selections/stake = the current preview."""
+    t = _preview_ticket(r)
+    t.pop("preview", None)
+    t.update(status="pending", pending=True, decide_at=decide_at)
+    return t
 
 
 # ------------------------------------------------------------------ 今日精選 (daily picks)
@@ -631,7 +694,13 @@ def build_picks(conn, date, venue, races) -> dict | None:
         res = None
         t = tickets.get(it.get("key"))
         leg_hits = None
-        if t is not None and t["status"] == "settled":
+        if t is None and it.get("status") == "pending" and _races_done(byrn, it):
+            it = {**it, "status": "missed"}        # decision window long gone and nothing was bought
+        # nothing bought (window missed, or re-evaluated at race time with no candidate): no result, not in totals
+        missed = t is None and (it.get("status") == "missed" or bool(it.get("no_bet")))
+        if missed or it.get("status") == "pending":
+            pass
+        elif t is not None and t["status"] == "settled":
             det = _json(t["detail"], {}) or {}
             nw = int(det.get("n_winning_units") or 0)
             pay, prof = _f(t["payout"], 2), _f(t["profit"], 2)
@@ -646,7 +715,9 @@ def build_picks(conn, date, venue, races) -> dict | None:
                 leg_hits = r.get("leg_hits")
             except Exception as e:      # pragma: no cover - never break the export
                 log.warning("picks result failed for %s: %s", it.get("key"), e)
-        if res is None or res.get("hypothetical"):
+        if missed:
+            pass
+        elif res is None or res.get("hypothetical"):
             all_done = False
         else:
             tot_pay += res["payout"] or 0.0
@@ -671,13 +742,16 @@ def build_picks(conn, date, venue, races) -> dict | None:
             legs.append(l)
         pub["legs"] = legs
         pub["result"] = res
+        if pub.get("status") == "pending" and not pub.get("decide_at"):
+            pub["decide_at"] = _decide_at((byrn.get(int(pub["race_no"])) or {}).get("post_time") or pub.get("post_time"))
         items.append(pub)
     sel = items
     meeting_done = bool(byrn) and all(r.get("result") for r in byrn.values())
-    total = round(sum(i["stake"] or 0 for i in sel), 2)
-    if sel and all_done:
+    bought = [i for i in sel if i.get("status") != "missed" and not i.get("no_bet")]
+    total = round(sum(i["stake"] or 0 for i in bought), 2)
+    if bought and all_done:
         total_payout = round(tot_pay, 2)
-    elif not sel and meeting_done:
+    elif not bought and meeting_done:
         total_payout = 0.0
     else:
         total_payout = None
@@ -704,6 +778,10 @@ def build_picks(conn, date, venue, races) -> dict | None:
         out["preview"] = False
     out.update({"title": PICKS_TITLE, "items": items, "banker": banker, "n_items": len(sel), "total_stake": total,
                 "n_star": sum(1 for i in sel if i.get("star")),
+                "n_pending": sum(1 for i in sel if i.get("status") == "pending"),
+                "n_missed": sum(1 for i in sel if i.get("status") == "missed"),
+                "next_decide_at": min([i["decide_at"] for i in sel if i.get("status") == "pending" and i.get("decide_at")],
+                                      default=None),
                 "total_payout": total_payout,
                 "total_profit": None if total_payout is None else round(total_payout - total, 2)})
     return out
@@ -751,16 +829,19 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
                                                          "AND venue=?", (date, venue))}
     preview_rows = []          # 預覽（未落注）: decision rows of a 'pre_scores' run (ticket_id NULL)
     preview_at = None
+    pending_rows = []          # 待定: (single-race row decided ~8 min before the race, decide_at)
     if d_run:
         # each robot's rows of its latest run (bots.run_bots replaces a robot's rows per meeting,
         # so robots re-decided by a later run never hide the others' decisions)
+        # (rows of one run_id are kept together: the per-race decision runs replace a robot's pending rows
+        # inside the T-2h run_id with a later created_at, and must not hide its T-2h multi-race rows)
         rows = conn.execute("SELECT * FROM bot_decisions WHERE date=? AND venue=?", (date, venue)).fetchall()
         latest = {}
         for r in rows:
             k = (r["created_at"] or "", r["run_id"] or "")
             if k > latest.get(r["bot_id"], ("", "")):
                 latest[r["bot_id"]] = k
-        rows = [r for r in rows if (r["created_at"] or "", r["run_id"] or "") == latest[r["bot_id"]]]
+        rows = [r for r in rows if (r["run_id"] or "") == latest[r["bot_id"]][1]]
         rows = sorted(rows, key=lambda r: (order.get(r["bot_id"], 99), r["bot_id"], r["structure"] or ""))
         for r in rows:
             t = all_tickets.get(r["ticket_id"]) if r["ticket_id"] is not None else None
@@ -777,21 +858,39 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
                 payout, profit = _f(t["total_stake"], 2), 0.0
             if r["ticket_id"] is not None and not leg and r["action"] == "bet":
                 tdec.setdefault(r["ticket_id"], (r["structure"] or "", _json(r["selections"], [])))
-            if r["action"] != "bet":
+            action, reason = r["action"], _reason_txt(r["reason"])
+            dec_at = None
+            if action == "pending":
+                dec_at = _decide_at((race_info.get(int(r["race_no"])) or {"post_time": None})["post_time"])
+                if status != "pre":          # meeting over: a left-over pending row was never decided
+                    action, reason = "skip", ("賽馬日取消，冇落注" if status == "abandoned" else MISSED_LEFTOVER)
+                elif (r["stake"] or 0) > 0:
+                    pending_rows.append((r, dec_at))
+            if action == "skip" or (action == "pending" and not (r["stake"] or 0) > 0):
+                sk = {"race_no": int(r["race_no"]), "structure": r["structure"] or "", "reason": reason}
+                if action == "pending":
+                    sk.update(pending=True, decide_at=dec_at)
+                elif reason.startswith(MISSED_PREFIX):
+                    sk["missed"] = True
+                skips.setdefault(r["bot_id"], []).append(sk)
+            elif action != "bet" and action != "pending":
                 skips.setdefault(r["bot_id"], []).append({"race_no": int(r["race_no"]),
-                                                          "structure": r["structure"] or "",
-                                                          "reason": _reason_txt(r["reason"])})
+                                                          "structure": r["structure"] or "", "reason": reason})
             is_prev = (run_kind.get(r["run_id"]) or ("", ""))[0] == PREVIEW_KIND
             if is_prev:
                 preview_rows.append(r)
                 preview_at = max(preview_at or "", (run_kind.get(r["run_id"]) or ("", ""))[1] or r["created_at"] or "")
                 tstat = "preview" if r["action"] == "bet" and (r["stake"] or 0) > 0 else None
+            if action == "pending":
+                tstat = "pending"
             decisions.setdefault(int(r["race_no"]), []).append({
-                "bot_id": r["bot_id"], "race_no": int(r["race_no"]), "action": r["action"],
+                "bot_id": r["bot_id"], "race_no": int(r["race_no"]), "action": action,
                 "structure": r["structure"] or "", "selections": _json(r["selections"], []),
-                "stake": _f(r["stake"], 2) or 0.0, "reason": _reason_txt(r["reason"]),
+                "stake": _f(r["stake"], 2) or 0.0, "reason": reason,
                 "payout": payout, "profit": profit, "ticket_status": tstat, "parlay_leg": bool(leg),
-                **({"preview": True} if is_prev else {})})
+                **({"preview": True} if is_prev else {}),
+                **({"pending": True, "decide_at": dec_at} if action == "pending" else {}),
+                **({"missed": True} if action == "skip" and reason.startswith(MISSED_PREFIX) else {})})
 
     model_version = None
     out_races = []
@@ -890,6 +989,15 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
         b["n_tickets"] += 1
         b["stake"] = round(b["stake"] + tj["total_stake"], 2)
         b["preview"] = True
+    for r, dec_at in pending_rows:   # 待定 pseudo-tickets (current preview; never in stake / bankroll)
+        b = bots.setdefault(r["bot_id"], {"bot_id": r["bot_id"], "stake": 0.0, "payout": None, "profit": None,
+                                          "n_tickets": 0, "settled": False, "tickets": []})
+        tj = _pending_ticket(r, dec_at)
+        b["tickets"].append(tj)
+        b["n_pending"] = b.get("n_pending", 0) + 1
+        b["pending_stake"] = round(b.get("pending_stake", 0.0) + tj["total_stake"], 2)
+        b["settled"] = False
+        b["payout"] = b["profit"] = None
     for bid in {d["bot_id"] for ds in decisions.values() for d in ds} - set(bots):
         bots[bid] = {"bot_id": bid, "stake": 0.0, "payout": 0.0 if status == "results" else None,
                      "profit": 0.0 if status == "results" else None, "n_tickets": 0,
@@ -899,6 +1007,10 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
     for b in bots.values():
         b["tickets"].sort(key=lambda t: (t["race_no"] or 99, t["ticket_id"] or 0))
         b["skips"] = sorted(skips.get(b["bot_id"], []), key=lambda x: (x["race_no"] or 99))
+        b.setdefault("n_pending", 0)
+        b.setdefault("pending_stake", 0.0)
+    pend_races = sorted({int(r["race_no"]) for ds in decisions.values() for r in ds if r.get("pending")})
+    pend_at = [r["decide_at"] for ds in decisions.values() for r in ds if r.get("pending") and r.get("decide_at")]
     bot_list = sorted(bots.values(), key=lambda b: (order.get(b["bot_id"], 99), b["bot_id"]))
 
     return {"date": date, "venue": venue, "venue_zh": VENUE_ZH.get(venue, venue), "status": status,
@@ -906,6 +1018,7 @@ def export_meeting(conn, date, venue, bots_order=None) -> dict:
             "scores_run_id": s_run, "decisions_run_id": d_run,
             "races": out_races, "meeting_decisions": decisions.get(0, []), "bots": bot_list,
             "preview": preview, "preview_at": preview_at if preview else None,
+            "pending": bool(pend_races), "pending_races": pend_races, "next_decide_at": min(pend_at, default=None),
             "picks": build_picks(conn, date, venue, out_races)}
 
 
@@ -1002,7 +1115,7 @@ def export_site(conn, out_dir=None, demo: bool = False) -> list[Path]:
             "SELECT DISTINCT bot_id FROM paper_tickets WHERE bot_id IS NOT NULL "
             "UNION SELECT DISTINCT bot_id FROM bot_decisions") if r[0] not in ids]
         for i, bid in enumerate(sorted(extra), len(meta) + 1):
-            meta.append({"id": bid, "no": i, "name": bid, "style": "", "description": ""})
+            meta.append({"id": bid, "no": i, "name": bid, "style": "", "description": "", "uncapped": False, "note": ""})
             ids.append(bid)
 
     written, metas, bot_tickets = [], [], {}
@@ -1012,7 +1125,7 @@ def export_site(conn, out_dir=None, demo: bool = False) -> list[Path]:
         written.append(_write_json(mdir / fname, m, ignore=("generated_at",)))
         for b in m["bots"]:
             for t in b["tickets"]:
-                if t.get("status") == "preview":          # 預覽 pseudo-tickets never enter a robot's history
+                if t.get("status") in ("preview", "pending"):   # 預覽 / 待定 pseudo-tickets: not in history
                     continue
                 bot_tickets.setdefault(b["bot_id"], []).append(
                     {"date": date, "venue": venue, "venue_zh": VENUE_ZH.get(venue, venue), **t})
@@ -1020,7 +1133,8 @@ def export_site(conn, out_dir=None, demo: bool = False) -> list[Path]:
                       "status": m["status"], "file": f"data/meetings/{fname}", "n_races": len(m["races"]),
                       "has_scores": any(h["score"] is not None for r in m["races"] for h in r["horses"]),
                       "has_decisions": any(r["decisions"] for r in m["races"]) or bool(m["meeting_decisions"]),
-                      "has_picks": bool(m.get("picks")), "preview": bool(m.get("preview"))})
+                      "has_picks": bool(m.get("picks")), "preview": bool(m.get("preview")),
+                      "has_pending": bool(m.get("pending"))})
     keep = {p.name for p in written}
     for p in mdir.glob("*.json"):
         if p.name not in keep:
@@ -1044,11 +1158,16 @@ def export_site(conn, out_dir=None, demo: bool = False) -> list[Path]:
     for b in meta:   # live (paper) results only - no backtest figures on the public site
         lv = live[b["id"]]
         bots.append({**b, "bankroll": lv["bankroll"], "start_bankroll": lv["start_bankroll"],
-                     "live": lv["live"]})
+                     "n_meetings": lv["live"]["n_meetings"], "live": lv["live"]})
+    n_settled = 0
+    if "bot_id" in _cols(conn, "paper_tickets"):
+        n_settled = conn.execute("SELECT COUNT(*) FROM (SELECT DISTINCT date, venue FROM paper_tickets "
+                                 "WHERE status='settled' AND bot_id IS NOT NULL)").fetchone()[0]
     now = _now()
     index = {"updated_at": now, "disclaimer": DISCLAIMER, "simulation_only": True,
              "start_bankroll": START_BANKROLL, "next_meeting": next_meeting(conn), "meetings": metas,
-             "bots": bots, "score_explanation": score_explanation(), "sub_score_labels": sub_score_labels()}
+             "bots": bots, "score_explanation": score_explanation(), "sub_score_labels": sub_score_labels(),
+             "n_settled_meetings": int(n_settled), "sample_note": sample_note(int(n_settled))}
     if demo:
         index["demo"] = True
     written.append(_write_json(data / "index.json", index))

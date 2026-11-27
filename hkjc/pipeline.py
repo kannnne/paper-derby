@@ -10,6 +10,14 @@ from .odds import latest_odds
 
 log = logging.getLogger("hkjc.pipeline")
 
+# Per-race late betting: the T-2h run (pre_meeting, kind 'pre_bet') places only the MULTI-RACE
+# tickets; single-race decisions / 今日精選 items are written as 'pending' and decided ~8 min
+# before each race with that race's latest odds (race_bet, via hkjc.cli.cmd_race_bet).
+PER_RACE = True
+# race_bet also refreshes the race's predictions + 評分 stored under the T-2h run, so the site /
+# post-race report show the numbers the race-time decisions used.
+RACE_BET_UPDATE_SCORES = True
+
 VENUE_ZH = {"ST": "沙田", "HV": "跑馬地"}
 SURFACE_ZH = {"TURF": "草地", "AWT": "全天候(泥地)"}
 DISCLAIMER = ("> ⚠️ 本報告只供模擬投注 (paper trade) 研究用途，並非投資或投注建議。"
@@ -122,7 +130,13 @@ def _bots_md(decisions, names, conn) -> str:
             if d["action"] == "bet" and d.get("stake"):
                 where = f"第{d['race_no']}場" if d["race_no"] else "過關"
                 out.append(f"- ✅ {where} {d.get('structure') or ''}：{d['reason']}")
-        skipped = [d for d in ds if d["action"] != "bet"]
+        pend = [d for d in ds if d["action"] == bots.PENDING]
+        if pend:
+            prev = [f"第{d['race_no']}場 {d.get('structure') or ''} ${d['stake'] or 0:,.0f}"
+                    for d in pend if d.get("stake")]
+            out.append(f"- ⏳ 待定 {len({d['race_no'] for d in pend})} 場（單場注開跑前約 8 分鐘用最新賠率先決定）"
+                       + ("；而家預覽會買：" + "；".join(prev[:12]) if prev else "；而家預覽全部唔買"))
+        skipped = [d for d in ds if d["action"] not in ("bet", bots.PENDING)]
         if skipped:
             out.append("- 唔買：" + "；".join(
                 (f"第{d['race_no']}場 " if d["race_no"] else "全日 ") + d["reason"] for d in skipped[:12]))
@@ -135,21 +149,48 @@ def _picks_md(pk) -> str:
     return picks.picks_md(pk)
 
 
-def _make_picks(conn, run_id, date, venue, pred, odds):
-    """今日精選 for this run (stored in table picks).  Never raises: None on failure."""
+def _post_times(conn, date, venue) -> dict:
+    return {int(r[0]): r[1] for r in conn.execute("SELECT race_no, post_time FROM races WHERE date=? AND venue=?",
+                                                  (date, venue))}
+
+
+def _picks_cfg(conn, date, venue):
+    nr = conn.execute("SELECT n_races FROM meetings WHERE date=? AND venue=?", (date, venue)).fetchone()
+    return {"n_races": nr[0]} if nr and nr[0] else None
+
+
+def _make_picks(conn, run_id, date, venue, pred, odds, per_race=False):
+    """今日精選 for this run (stored in table picks).  Never raises: None on failure.
+    ``per_race``: single-race items get status 'pending' + decide_at, the others 'final'."""
     try:
         pinput = pred.copy()
-        pt = {int(r[0]): r[1] for r in conn.execute("SELECT race_no, post_time FROM races WHERE date=? AND venue=?",
-                                                     (date, venue))}
+        pt = _post_times(conn, date, venue)
         pinput["post_time"] = [pt.get(int(r)) for r in pinput["race_no"]]
-        nr = conn.execute("SELECT n_races FROM meetings WHERE date=? AND venue=?", (date, venue)).fetchone()
-        cfg = {"n_races": nr[0]} if nr and nr[0] else None
-        pk = picks.make_picks(pinput, odds or None, cfg)
+        pk = picks.make_picks(pinput, odds or None, _picks_cfg(conn, date, venue))
+        if per_race:
+            from .cli import RACE_BET_LEAD
+            picks.mark_pending(pk, pt, int(RACE_BET_LEAD.total_seconds() // 60))
         picks.save_picks(conn, run_id, date, venue, pk)
         return pk
     except Exception:
         log.exception("今日精選 failed; robots / report continue without it")
         return None
+
+
+def _live_frame(conn, date, venue, pred, odds):
+    """Model predictions + racecard columns + live WIN / PLA odds, scratched horses removed."""
+    card = pd.read_sql_query(
+        "SELECT race_no, horse_no, horse_name, jockey_name, trainer_name, draw, weight, rating, scratched "
+        "FROM racecard WHERE date=? AND venue=?", conn, params=(date, venue))
+    pred = pred.drop(columns=[c for c in ("horse_name",) if c in pred.columns]).merge(
+        card, on=["race_no", "horse_no"], how="left")
+    pred = pred[pred["scratched"].fillna(0) == 0].copy()
+
+    def _o(rn, pool, h):
+        return (odds.get(int(rn), {}).get(pool, {}) or {}).get(str(int(h))) if odds else None
+    pred["win_odds_live"] = [_o(r, "WIN", h) for r, h in zip(pred.race_no, pred.horse_no)]
+    pred["pla_odds"] = [_o(r, "PLA", h) for r, h in zip(pred.race_no, pred.horse_no)]
+    return pred
 
 
 # ------------------------------------------------------------- preview scores
@@ -239,18 +280,8 @@ def pre_meeting(conn, run_id, date, venue, config=None, place_bets=True) -> dict
     pred = model.predict_card(conn, date, venue, kind="combined", odds=odds or None)
     if pred.empty:
         raise RuntimeError(f"no racecard predictions for {date} {venue}")
-    card = pd.read_sql_query(
-        "SELECT race_no, horse_no, horse_name, jockey_name, trainer_name, draw, weight, rating, scratched "
-        "FROM racecard WHERE date=? AND venue=?", conn, params=(date, venue))
-    pred = pred.drop(columns=[c for c in ("horse_name",) if c in pred.columns]).merge(
-        card, on=["race_no", "horse_no"], how="left")
-    pred = pred[pred["scratched"].fillna(0) == 0].copy()
-
-    def _o(rn, pool, h):
-        v = (odds.get(int(rn), {}).get(pool, {}) or {}).get(str(int(h)))
-        return v
-    pred["win_odds_live"] = [_o(r, "WIN", h) for r, h in zip(pred.race_no, pred.horse_no)]
-    pred["pla_odds"] = [_o(r, "PLA", h) for r, h in zip(pred.race_no, pred.horse_no)]
+    pred = _live_frame(conn, date, venue, pred, odds)
+    per_race = bool(place_bets and PER_RACE)
 
     now = datetime.now().isoformat(timespec="seconds")
     conn.executemany(
@@ -271,7 +302,7 @@ def pre_meeting(conn, run_id, date, venue, config=None, place_bets=True) -> dict
         pred["score"], pred["reasons"] = float("nan"), None
 
     # 今日精選（分析引擎；daily_picks 機械人照買）
-    pk = _make_picks(conn, run_id, date, venue, pred, odds)
+    pk = _make_picks(conn, run_id, date, venue, pred, odds, per_race=per_race)
     if place_bets:     # the real run supersedes the 預覽: drop the preview decisions / picks of this meeting
         for (rid,) in conn.execute("SELECT run_id FROM runs WHERE kind='pre_scores' AND date=? AND venue=?",
                                    (date, venue)).fetchall():
@@ -281,7 +312,7 @@ def pre_meeting(conn, run_id, date, venue, config=None, place_bets=True) -> dict
 
     # 機械人各自決定（每場都有買/唔買原因）
     if place_bets:
-        decisions = bots.run_bots(conn, run_id, date, venue, pred, odds or None, picks=pk)
+        decisions = bots.run_bots(conn, run_id, date, venue, pred, odds or None, picks=pk, defer_single=per_race)
     else:
         decisions = []
         for b in bots.BOTS:
@@ -301,7 +332,9 @@ def pre_meeting(conn, run_id, date, venue, config=None, place_bets=True) -> dict
           f"生成時間：{now}　｜　賠率快照：{snap or '未有（賠率未開售，只用模型）'}　｜　模型：{pred['model_version'].iloc[0]}\n",
           DISCLAIMER + "\n",
           _picks_md(pk),
-          ("## 模擬投注（機械人已記錄）\n" if place_bets else
+          ("## 模擬投注（機械人已記錄）\n"
+           + ("過關／跨場注而家落；**單場注**（標「⏳ 待定」）每場開跑前約 8 分鐘用該場最新賠率先決定。\n"
+              if per_race else "") if place_bets else
            "## 參考組合（⚠️ 排程太遲執行，已過落注時限：只供參考，機械人冇記錄模擬注）\n"),
           _bots_md(decisions, names, conn),
           _backtest_hint(conn),
@@ -327,7 +360,131 @@ def pre_meeting(conn, run_id, date, venue, config=None, place_bets=True) -> dict
         md.append(_table(t))
     md.append(_long_term_md(conn, venue, date))
     return {"report_md": "\n".join(md), "notes": {"tickets": ids, "n_pred": len(pred), "odds_snapshot": snap,
-                                                  "placed": bool(place_bets)}}
+                                                  "placed": bool(place_bets), "per_race": per_race}}
+
+
+# ------------------------------------------------------------ per-race late betting
+def _score_race(conn, date, venue, pred, odds):
+    """評分 of the race(s) in ``pred`` (upcoming-meeting path even after earlier races have results:
+    scores.score_meeting switches to the training frame once any race of the day is in)."""
+    if not scores._is_past(conn, date, venue):
+        return scores.score_meeting(conn, date, venue, pred_df=pred, odds=odds or None)
+    from . import features as F
+    card = F.build_card_frame(conn, date, venue, odds=odds or None)
+    card = card[card["race_id"].isin(set(pred["race_id"]))]
+    nm = scores._names(conn, date, venue, False)
+    card = card.drop(columns=[c for c in ("jockey_name", "trainer_name") if c in card.columns]).merge(
+        nm[["race_id", "horse_no", "jockey_name", "trainer_name"]], on=["race_id", "horse_no"], how="left")
+    keys = set(zip(card["race_id"], card["horse_no"].astype(int)))
+    pred = pred[[(a, int(b)) in keys for a, b in zip(pred["race_id"], pred["horse_no"])]]
+    return scores.score_horses(pred, card)
+
+
+def race_bet(conn, pre_run_id, race_run_id, date, venue, race_no, deadline=None, clock=None) -> dict:
+    """Race-time step (~8 min before race ``race_no``): re-predict with the latest odds (only this
+    race's rows are used), re-evaluate the race's pending 今日精選 items and let every robot decide
+    this race's single-race bets (bots.race_bots: tickets under ``race_run_id``, pending rows of the
+    T-2h run ``pre_run_id`` replaced).  Odds / racecard must already be refreshed by the caller.
+    Returns notes for the runs row."""
+    rn = int(race_no)
+    odds = latest_odds(conn, date, venue)
+    pred = model.predict_card(conn, date, venue, kind="combined", odds=odds or None)
+    if len(pred):
+        pred = _live_frame(conn, date, venue, pred, odds)
+        pred = pred[pred["race_no"].astype(int) == rn].copy()
+    now = datetime.now().isoformat(timespec="seconds")
+    rid = f"{date.replace('-', '')}-{venue}-{rn:02d}"
+    if len(pred):
+        try:
+            sc = _score_race(conn, date, venue, pred, odds)
+            if len(sc):
+                pred = pred.merge(sc[["race_no", "horse_no", "score", "rank_in_race", "reasons"]],
+                                  on=["race_no", "horse_no"], how="left")
+            if RACE_BET_UPDATE_SCORES:
+                conn.execute("DELETE FROM predictions WHERE run_id=? AND race_id=?", (pre_run_id, rid))
+                conn.executemany(
+                    "INSERT OR REPLACE INTO predictions (run_id, race_id, horse_no, p_win, p_place, model_version, "
+                    "created_at) VALUES (?,?,?,?,?,?,?)",
+                    [(pre_run_id, r.race_id, int(r.horse_no), float(r.p_win), float(r.p_place), r.model_version, now)
+                     for r in pred.itertuples()])
+                conn.commit()
+                if len(sc):
+                    scores.save_scores(conn, pre_run_id, sc)
+        except Exception:
+            log.exception("race_bet %s %s R%s: scoring failed; deciding without new scores", date, venue, rn)
+        pt = _post_times(conn, date, venue)
+        pred["post_time"] = [pt.get(int(r)) for r in pred["race_no"]]
+    else:
+        log.warning("race_bet %s %s R%s: no predictions for the race (all runners scratched?)", date, venue, rn)
+    pk = picks.load_picks(conn, date, venue, run_id=pre_run_id)
+    n_items = 0
+    if pk:
+        try:
+            if len(pred):
+                upd = picks.reevaluate_race(pk, pred, odds or None, rn, _picks_cfg(conn, date, venue))
+            else:
+                upd = picks.reevaluate_race(pk, pd.DataFrame(columns=["race_no", "horse_no", "p_win", "p_place"]),
+                                            odds or None, rn)
+            n_items = len(upd)
+            if upd:
+                picks.save_picks(conn, pre_run_id, date, venue, pk)
+        except Exception:
+            log.exception("race_bet %s %s R%s: 今日精選 re-evaluation failed (daily_picks buys nothing new)",
+                          date, venue, rn)
+            try:     # don't leave the race's items 'pending' forever: show them as not bought
+                for it in pk.get("items") or []:
+                    if it.get("status") == "pending" and int(it.get("race_no") or 0) == int(rn):
+                        it["status"] = "missed"
+                        it["reason"] = "系統計算出錯，今場冇落注（原本預覽：" + str(it.get("reason") or "") + "）"
+                picks.save_picks(conn, pre_run_id, date, venue, pk)
+            except Exception:
+                log.exception("race_bet %s %s R%s: could not mark picks items missed", date, venue, rn)
+            pk = None
+    if pk is None:
+        pk = {"items": []}
+    decs = bots.race_bots(conn, pre_run_id, race_run_id, date, venue, rn,
+                          pred if len(pred) else pd.DataFrame(columns=["race_no", "horse_no", "p_win", "p_place"]),
+                          odds or None, picks=pk, deadline=deadline, clock=clock)
+    snap = conn.execute("SELECT MAX(snapshot_at) FROM odds_snapshots WHERE date=? AND venue=? AND race_no=?",
+                        (date, venue, rn)).fetchone()[0]
+    bets_ = [d for d in decs if d["action"] == "bet" and d.get("ticket_id")]
+    return {"race_no": rn, "pre_run_id": pre_run_id, "n_pred": int(len(pred)), "odds_snapshot": snap,
+            "decisions": len(decs), "bets": len(bets_), "tickets": [d["ticket_id"] for d in bets_],
+            "stake": round(sum(float(d["stake"] or 0) for d in bets_), 2), "picks_items": n_items,
+            "bots": sorted({d["bot_id"] for d in decs})}
+
+
+def race_missed(conn, pre_run_id, date, venue, race_no, race_run_id=None) -> dict:
+    """The race-time window passed without (a complete) decision: orphan tickets of the race run
+    (placed but never linked to a decision row) are voided + refunded, pending rows -> skip, and the
+    race's picks items that were never bought (pending, or final without a ticket) -> missed."""
+    voided = bots.reconcile_race_orphans(conn, pre_run_id, race_run_id, race_no) if race_run_id else []
+    n = bots.mark_race_missed(conn, pre_run_id, race_no)
+    m = 0
+    pk = picks.load_picks(conn, date, venue, run_id=pre_run_id)
+    if pk:
+        m = picks.mark_missed(pk, race_no)
+        bought = set()
+        for (det,) in conn.execute("SELECT detail FROM paper_tickets WHERE date=? AND venue=? AND bot_id='daily_picks' "
+                                   "AND status!='void'", (date, venue)):
+            try:
+                k = (json.loads(det or "{}").get("notes") or {}).get("pick_key")
+            except ValueError:
+                k = None
+            if k:
+                bought.add(k)
+        for it in pk.get("items") or []:
+            if (int(it.get("race_no") or 0) == int(race_no) and it.get("status") == "final"
+                    and not it.get("no_bet") and it.get("kind") == "single" and it.get("key") not in bought):
+                it["status"] = "missed"
+                it["decided_at"] = None
+                it["reason"] = "錯過開跑前落注時間，冇落注（原本：" + str(it.get("reason") or "") + "）"
+                m += 1
+        if m:
+            picks.recount(pk)
+            picks.save_picks(conn, pre_run_id, date, venue, pk)
+    return {"race_no": int(race_no), "pre_run_id": pre_run_id, "missed": True, "rows": n, "picks_items": m,
+            "voided_tickets": voided}
 
 
 # --------------------------------------------------------------------- post-meeting

@@ -1100,6 +1100,108 @@ def make_picks(pred_df, odds=None, cfg=None) -> dict:
 
 
 # =====================================================================================
+# per-race late betting: single-race items are decided ~8 min before their race
+# =====================================================================================
+# status: "final" (multi-race / all-up items: decided at T-2h; single-race items once re-evaluated
+# at race time), "pending" (single-race item of the T-2h run, to be decided at ``decide_at``),
+# "missed" (the race-time window was missed: not bought).
+STATUS_PENDING, STATUS_FINAL, STATUS_MISSED = "pending", "final", "missed"
+
+
+def _minus_minutes(ts, minutes):
+    from datetime import timedelta
+    if not ts:
+        return None
+    try:
+        t = datetime.strptime(str(ts)[:16], "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return None
+    return (t - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M")
+
+
+def mark_pending(pk, post_times, lead_minutes=8) -> dict:
+    """T-2h run: single-race items -> status 'pending' + decide_at (post_time - lead, 'YYYY-MM-DDTHH:MM');
+    every other item -> 'final'.  ``post_times``: {race_no: 'YYYY-MM-DDTHH:MM'}.  In place; returns pk."""
+    for it in (pk or {}).get("items") or []:
+        if it["kind"] == "single":
+            rn = int(it["race_no"])
+            it["status"] = STATUS_PENDING
+            it["decide_at"] = _minus_minutes(post_times.get(rn) or it.get("post_time"), lead_minutes)
+        else:
+            it["status"] = STATUS_FINAL
+    return pk
+
+
+def recount(pk) -> dict:
+    """Totals of a picks dict after items changed (missed / not-bought items carry no stake)."""
+    items = (pk or {}).get("items") or []
+    live = [it for it in items if it.get("status") != STATUS_MISSED and not it.get("no_bet")]
+    pk["total_stake"] = round(sum(float(it.get("stake") or 0) for it in live), 2)
+    pk["n_items"] = len(items)
+    pk["n_star"] = sum(1 for it in items if it.get("star"))
+    return pk
+
+
+def pending_items(pk, race_no):
+    return [it for it in (pk or {}).get("items") or []
+            if it.get("status") == STATUS_PENDING and it["kind"] == "single" and int(it["race_no"]) == int(race_no)]
+
+
+def mark_missed(pk, race_no) -> int:
+    """The race's pending items -> 'missed' (never bought).  Returns how many."""
+    its = pending_items(pk, race_no)
+    for it in its:
+        it["status"] = STATUS_MISSED
+        it["decided_at"] = None
+        it["reason"] = "錯過開跑前落注時間，冇落注（原本預覽：" + (it.get("reason") or "") + "）"
+    if its:
+        recount(pk)
+    return len(its)
+
+
+def reevaluate_race(pk, pred_df, odds, race_no, cfg=None, decided_at=None) -> list[dict]:
+    """Race-time re-evaluation of the race's PENDING single-race items: each item's section is
+    re-chosen within ``race_no`` only (race fixed; pool, structure and horses may change; ⭐ star
+    recomputed) with ``pred_df`` / ``odds`` (latest).  Items are replaced in place (rank,
+    decide_at kept; status 'final', decided_at).  When the race no longer has any candidate for
+    the section (e.g. scratchings shrank the field) the item stays with ``no_bet`` True, stake 0
+    and no ticket.  Returns the updated items."""
+    cfg = _cfg(cfg)
+    rn = int(race_no)
+    todo = pending_items(pk, rn)
+    if not todo:
+        return []
+    decided_at = decided_at or datetime.now(HKT).replace(tzinfo=None).isoformat(timespec="seconds")
+    g = pred_df[pd.to_numeric(pred_df["race_no"]).astype(int) == rn]
+    info, post = _horse_info(g)
+    cands, ctx = enumerate_candidates(g, odds, cfg)
+    races = ctx["races"]
+    out = []
+    items = pk["items"]
+    for old in todo:
+        sec = old.get("section") or old["pool"]
+        mine = [c for c in cands if c["kind"] == "single" and int(c["race_no"]) == rn and _section_pool(c) == sec]
+        sel = select_section(mine, sec, cfg)[:1]
+        if sel:
+            it = _section_item(sec, sel[0], old["rank"], races, info, post, cfg)
+            it["post_time"] = it.get("post_time") or old.get("post_time")
+        else:
+            it = {k: v for k, v in old.items()}
+            it.update({"no_bet": True, "stake": 0.0, "n_combos": 0, "ticket": None,
+                       "reason": f"第{rn}場開跑前用最新賠率再計，{old.get('section_zh') or old['pool_zh']}"
+                                 f"冇合適組合（可能有馬退出）→ 唔買（原本預覽：{old.get('reason') or ''}）"})
+        it["status"] = STATUS_FINAL
+        it["decide_at"] = old.get("decide_at")
+        it["decided_at"] = decided_at
+        it["t2h_preview"] = {"structure_zh": old.get("structure_zh"), "stake": old.get("stake"),
+                         "legs": old.get("legs"), "hit_prob": old.get("hit_prob"), "star": old.get("star")}
+        items[items.index(old)] = it
+        out.append(it)
+    recount(pk)
+    return out
+
+
+# =====================================================================================
 # settlement (backtest + publish fallback)
 # =====================================================================================
 class DBData:
@@ -1261,13 +1363,16 @@ def picks_md(picks) -> str:
             res = it.get("result")
             rtxt = "-" if not res else (f"{'✅' if res['hit'] else '❌'} 派 ${res['payout']:,.0f}（{res['profit']:+,.0f}）"
                                         + ("（假設）" if res.get("hypothetical") else ""))
-            out.append(f"| {it['rank']} | {it.get('section_zh') or it['pool_zh']} | {'⭐' if it.get('star') else ''} | "
+            tag = {STATUS_PENDING: " ⏳待定", STATUS_MISSED: " ✖錯過"}.get(it.get("status"), "")
+            out.append(f"| {it['rank']} | {it.get('section_zh') or it['pool_zh']}{tag} | {'⭐' if it.get('star') else ''} | "
                        f"{races} | {it['structure_zh']} | {'；'.join(legs)} | {it['n_combos']} | ${it['stake']:,.0f} | "
                        f"{it['hit_prob'] * 100:.0f}% | {it['exp_roi'] * 100:+.0f}% | {it['odds_source']} | {rtxt} |")
         out.append("")
         for it in items:
+            when = (f"（⏳ 待定：約 {it['decide_at'][11:16]} 用最新賠率決定，以下係而家預覽）"
+                    if it.get("status") == STATUS_PENDING and it.get("decide_at") else "")
             out.append(f"- **#{it['rank']} {it.get('section_zh') or it['pool_zh']}{' ⭐ 值博' if it.get('star') else ''}**："
-                       f"{it['reason']}")
+                       f"{when}{it['reason']}")
         out.append("")
     b = picks.get("banker")
     if b:

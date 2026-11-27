@@ -110,3 +110,88 @@ def test_notify_only_errors_and_only_on_change(monkeypatch):
     assert health.notify(err, []) == "commented #7"
     assert health.notify(err, []) == "unchanged #7"               # same problem next tick: no new email
     assert health.notify(err + [{**err[0], "code": "unsettled"}], []) == "commented #7"
+
+
+def test_wrong_refunds_are_resettled_by_health(tmp_path, monkeypatch):
+    """A ticket refunded as 'pool not offered' although the pool's dividends are in now is
+    detected (warn, no paging) and re-settled by health --fix (so the cloud DB is corrected)."""
+    from hkjc import paper
+    c = connect(tmp_path / "w.db")
+    c.execute("INSERT INTO meetings (date, venue, n_races, status) VALUES (?,?,1,'results')", (D, V))
+    rid = "20261021-HV-01"
+    c.execute("INSERT INTO races (race_id, date, venue, race_no, post_time) VALUES (?,?,?,1,?)", (rid, D, V, f"{D}T18:40"))
+    for h, pos in ((3, 1), (5, 2), (7, 3), (9, 4)):
+        c.execute("INSERT INTO runners (race_id, horse_no, finish_pos) VALUES (?,?,?)", (rid, h, pos))
+    c.execute("INSERT INTO dividends VALUES (?,?,?,?)", (rid, "WIN", "3", 42.0))
+    c.commit()
+    t = {"strategy": "FF_box", "ticket_no": 1, "pool": "FF", "spec": None, "unit_stake": 10.0,
+         "legs": [{"race_no": 1, "pool": "FF", "selections": [3, 5, 7, 9]}]}
+    paper.place_tickets(c, "r", D, V, [t])
+    paper.settle(c, D)                                    # meeting final, FF missing -> refund 10
+    c.execute("INSERT INTO dividends VALUES (?,?,?,?)", (rid, "FF", "3,5,7,9", 230.0))
+    c.commit()
+    _at(monkeypatch, "2026-10-22 10:00")
+    assert "wrong_refunds" in _codes(c)
+    monkeypatch.setattr(cli, "_publish", lambda *a, **k: None)
+    health.run(c, do_fix=True)
+    assert "wrong_refunds" not in _codes(c)
+    assert c.execute("SELECT payout FROM paper_tickets").fetchone()[0] == pytest.approx(230.0)
+
+
+def _refund_world(tmp_path, pool_rows):
+    from hkjc import paper
+    c = connect(tmp_path / "g.db")
+    c.execute("INSERT INTO meetings (date, venue, n_races, status) VALUES (?,?,2,'results')", (D, V))
+    for rn in (1, 2):
+        rid = f"20261021-HV-0{rn}"
+        c.execute("INSERT INTO races (race_id, date, venue, race_no, post_time) VALUES (?,?,?,?,?)",
+                  (rid, D, V, rn, f"{D}T1{rn}:40"))
+        c.execute("INSERT INTO runners (race_id, horse_no, finish_pos) VALUES (?,?,1)", (rid, rn))
+        c.execute("INSERT INTO dividends VALUES (?,?,?,?)", (rid, "WIN", str(rn), 30.0))
+    for rid, pool, comb, dv in pool_rows:
+        c.execute("INSERT INTO dividends VALUES (?,?,?,?)", (rid, pool, comb, dv))
+    c.commit()
+    return c, paper
+
+
+@pytest.mark.parametrize("pool,legs,rows", [
+    ("FF", [{"race_no": 1, "pool": "FF", "selections": [1, 3, 5, 7]}],
+     [("20261021-HV-01", "FF", "REFUND", 10.0)]),
+    ("DBL", [{"race_no": 1, "pool": "DBL", "selections": [1]}, {"race_no": 2, "pool": "DBL", "selections": [2]}],
+     [("20261021-HV-02", "DBL", "REFUND", 10.0)]),
+])
+def test_genuine_pool_refund_is_not_a_wrong_refund_and_never_loops(tmp_path, monkeypatch, pool, legs, rows):
+    """Review finding: an explicit refund row ('REFUND') is not a payout -> a genuinely refunded
+    ticket must not be flagged / re-settled again and again (ledger churn every tick)."""
+    c, paper = _refund_world(tmp_path, rows)
+    t = {"strategy": f"{pool}_x", "ticket_no": 1, "pool": pool, "spec": None, "unit_stake": 10.0, "legs": legs}
+    paper.place_tickets(c, "r", D, V, [t])
+    assert paper.settle(c, D) == 1
+    assert paper.wrong_pool_refunds(c) == []
+    _at(monkeypatch, "2026-10-22 10:00")
+    monkeypatch.setattr(cli, "_publish", lambda *a, **k: None)
+    n0 = c.execute("SELECT COUNT(*) FROM bankroll_ledger").fetchone()[0]
+    for _ in range(3):
+        health.run(c, do_fix=True)
+    assert c.execute("SELECT COUNT(*) FROM bankroll_ledger").fetchone()[0] == n0
+    assert not {"wrong_refunds", "wrong_refunds_stuck"} & set(_codes(c))
+
+
+def test_resettle_happens_once_then_escalates_instead_of_looping(tmp_path, monkeypatch):
+    """If a ticket still looks wrong after one automatic re-settle, health stops re-settling it and
+    raises one 'wrong_refunds_stuck' error instead."""
+    c, paper = _refund_world(tmp_path, [])
+    t = {"strategy": "FF_x", "ticket_no": 1, "pool": "FF", "spec": None, "unit_stake": 10.0,
+         "legs": [{"race_no": 1, "pool": "FF", "selections": [1, 3, 5, 7]}]}
+    paper.place_tickets(c, "r", D, V, [t])
+    paper.settle(c, D)                                            # final, no FF -> refund
+    c.execute("INSERT INTO dividends VALUES ('20261021-HV-01','FF','2,4,6,8',230.0)")   # FF paid other horses
+    c.commit()
+    _at(monkeypatch, "2026-10-22 10:00")
+    monkeypatch.setattr(cli, "_publish", lambda *a, **k: None)
+    health.run(c, do_fix=True)                                    # re-settled once: now a loss
+    assert c.execute("SELECT payout FROM paper_tickets").fetchone()[0] == pytest.approx(0.0)
+    n1 = c.execute("SELECT COUNT(*) FROM bankroll_ledger").fetchone()[0]
+    health.run(c, do_fix=True)
+    assert c.execute("SELECT COUNT(*) FROM bankroll_ledger").fetchone()[0] == n1
+    assert "wrong_refunds" not in _codes(c)

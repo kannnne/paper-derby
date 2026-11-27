@@ -799,3 +799,46 @@ section > .pv-banner { margin-left: 0; margin-right: 0; }
 .hr-bot.on{border-color:#f5b301;background:rgba(245,179,1,.14)}
 
 .pv-mini{display:flex;align-items:center;gap:8px;margin:6px 0 8px}
+
+/* ---- 待定: single-race bets decided ~8 minutes before each race (distinct from the gold 預覽) */
+:root { --pend: #5cc8ff; --pend-soft: rgba(92, 200, 255, .10); }
+:root[data-theme="light"] { --pend: #0a64a8; --pend-soft: rgba(10, 100, 168, .08); }
+.pd-chip { display: inline-block; flex: none; font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px;
+  color: var(--pend); border: 1px dashed var(--pend); background: var(--pend-soft); white-space: nowrap; }
+.pd-chip.sm { font-size: 10.5px; padding: 0 7px; }
+.pd-at { font-size: 12px; font-weight: 700; color: var(--pend); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pd-tot { color: var(--pend); }
+.pd-tot b { color: var(--pend) !important; }
+.pd-note { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: 6px 0 10px; padding: 8px 12px; border-radius: 8px;
+  border: 1px dashed var(--pend); background: var(--pend-soft); line-height: 1.5; color: var(--text); }
+.pd-note .small { min-width: 0; flex: 1 1 220px; }
+.tk.is-pending { background: var(--pend-soft); border-bottom-style: dashed; }
+.tk.is-pending .tk-where { border-right: 3px dashed var(--pend); }
+.tk.is-pending .tk-main .pd-chip { order: 3; }
+.tk.is-pending .tk-stake { color: var(--text-2); }
+.pk-it.is-pending { border-style: dashed; border-color: var(--pend); border-left-style: solid; border-left-color: var(--pc);
+  background: linear-gradient(90deg, var(--pend-soft), var(--panel) 70%); }
+.pk-out.pk-pend { color: var(--pend); font-weight: 700; font-size: 12.5px; white-space: normal; text-align: right; }
+.pk-it.is-missed-time { opacity: .5; filter: grayscale(.85); }
+.pk-out.pk-missed { color: var(--muted); font-weight: 700; font-size: 12.5px; }
+.miss-tag { display: inline-block; font-size: 11px; font-weight: 800; padding: 0 7px; border-radius: 999px; white-space: nowrap;
+  color: var(--muted); border: 1px solid var(--line); background: var(--panel-2); }
+.rb-skips li.is-missed { opacity: .75; }
+.rb-pend { background: var(--pend-soft); }
+.rb-pend summary { color: var(--pend); }
+.pk-pend-note { margin: 4px 16px 0 22px; }
+.sample-note { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 0; padding: 7px 10px; border-radius: 8px;
+  font-size: 12.5px; line-height: 1.5; color: var(--text-2); background: var(--panel-2); border: 1px solid var(--line-soft); }
+.sn-i { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; font-weight: 900;
+  font-style: italic; font-family: Georgia, serif; background: var(--accent); color: var(--accent-ink); }
+@media (max-width: 640px) {
+  .pk-out.pk-pend { text-align: left; }
+  .pk-pend-note { margin-left: 12px; margin-right: 8px; }
+}
+
+/* negative bankroll (uncapped tracking robot) + its note */
+.neg { color: var(--bad); }
+.bot-note { display: inline-block; margin: 4px 0; padding: 2px 9px; border-radius: 6px; font-size: 12px; font-weight: 700;
+  color: var(--text-2); background: var(--panel-2); border: 1px dashed var(--line); }
+.bot-note.in-card { display: block; margin: 0; border-radius: 0; border-width: 0 0 1px; border-bottom-style: solid; border-color: var(--line-soft); padding: 5px 12px; }
+.lane .who small .neg { color: #ff9a9a; }

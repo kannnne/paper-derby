@@ -37,7 +37,8 @@ RACING_INTERVAL = 2      # minutes between ticks while a meeting is racing (resu
 
 
 def racing_now(db_path="data/hkjc.db", now=None) -> bool:
-    """True from 10 min before race 1 until 1 h after the last race of today's meeting.
+    """True from 15 min before race 1 until 1 h after the last race of today's meeting
+    (the per-race betting window opens 12 min before each race).
     Never raises: any problem (missing / locked DB, bad data) -> False (normal interval)."""
     import sqlite3
     c = None
@@ -50,7 +51,7 @@ def racing_now(db_path="data/hkjc.db", now=None) -> bool:
             return False
         first = datetime.strptime(row[0][:16], "%Y-%m-%dT%H:%M")
         last = datetime.strptime(row[1][:16], "%Y-%m-%dT%H:%M")
-        return first - timedelta(minutes=10) <= now <= last + timedelta(hours=1)
+        return first - timedelta(minutes=15) <= now <= last + timedelta(hours=1)
     except Exception:
         return False
     finally:
@@ -100,7 +101,7 @@ def loop(minutes, interval):
     restart = False
     while time.time() < end:
         sh("git pull -q --rebase")
-        if code_rev() != rev:
+        if code_rev() != rev and not racing_now():     # never restart mid-meeting (would risk a race's window)
             log("code changed on main -> restarting to load it")
             restart = True
             break

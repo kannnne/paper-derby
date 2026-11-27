@@ -9,10 +9,14 @@ Checks (all from the DB, no HTTP):
   scores_stale     preview older than 2 h while waiting for the betting run       -> cmd_scores
   pre_missing      past T-2h+20 min, before T-15 min, no betting run              -> cmd_pre
   pre_missed       racing started and there was no betting run (cannot be fixed)
+  race_bet_missed  per-race late betting: a race passed post_time - 3 min with 'pending' rows and no
+                   race_bet run (-> cli.race_bet_missed: no bet, rows -> skip), or its race_bet run
+                   recorded {"missed": true} (cannot be fixed; reported until 3 h after the race)
   live_lagging     a race started > 25 min ago but its full results table is not in (report;
                    tick keeps re-fetching; alerts only after 75 min)
   post_missing     tracked meeting finished, results in, no post-race analysis   -> cmd_post
   unsettled        open paper tickets on a meeting that has final results       -> paper.settle
+  wrong_refunds    tickets refunded as "pool not offered" though the pool paid  -> paper.resettle_wrong_refunds
   site_stale       site/data/index.json older than the latest run               -> publish
 """
 import json
@@ -70,8 +74,33 @@ def check(conn, now=None) -> list[dict]:
             add("pre_missed", "error", f"{d} {v}：第一場已開跑，但冇做到正式落注（機械人今場冇正式注項）",
                 None, date=d, venue=v)
 
-    # races in progress
+    # per-race late betting (single-race bets ~8 min before each race)
     today = now.strftime("%Y-%m-%d")
+    since_rb = (now - timedelta(days=cli.POST_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    for m in conn.execute("SELECT DISTINCT date, venue FROM runs WHERE kind='pre_bet' AND date>=? AND date<=?",
+                          (since_rb, today)).fetchall():
+        d, v = m["date"], m["venue"]
+        pre_id, notes = cli._pre_bet_run(conn, d, v)
+        if pre_id is None or not cli._per_race_meeting(conn, pre_id, notes):
+            continue
+        runs = {}
+        for r in conn.execute("SELECT run_id, notes FROM runs WHERE kind='race_bet' AND date=? AND venue=?", (d, v)):
+            try:
+                runs[r["run_id"]] = json.loads(r["notes"] or "{}") or {}
+            except ValueError:
+                runs[r["run_id"]] = {}
+        for r in conn.execute("SELECT race_no, post_time FROM races WHERE date=? AND venue=? AND post_time IS NOT NULL",
+                              (d, v)).fetchall():
+            rn, post = int(r["race_no"]), _ts(r["post_time"])
+            rid = cli.race_bet_run_id(d, v, rn)
+            if rid not in runs and now > post - cli.RACE_BET_LATEST and cli._has_pending(conn, pre_id, rn):
+                add("race_bet_missed", "error", f"{d} {v} 第{rn}場：已過開跑前 3 分鐘，單場注仲係「待定」冇決定",
+                    "race_bet_missed", date=d, venue=v, race_no=rn)
+            elif runs.get(rid, {}).get("missed") and now <= post + timedelta(hours=3):
+                add("race_bet_missed", "error", f"{d} {v} 第{rn}場：錯過開跑前落注時間，呢場單場注冇落",
+                    None, date=d, venue=v, race_no=rn)
+
+    # races in progress
     for m in conn.execute("SELECT m.date, m.venue, MAX(r.post_time) last_post FROM meetings m JOIN races r "
                           "ON r.date=m.date AND r.venue=m.venue WHERE m.date=? AND "
                           "(m.status IS NULL OR m.status NOT IN ('results','abandoned')) GROUP BY m.date, m.venue",
@@ -103,6 +132,22 @@ def check(conn, now=None) -> list[dict]:
                 add("unsettled", "error", f"{m['date']} {m['venue']}：有 {n} 張模擬注未結算",
                     "settle", date=m["date"], venue=m["venue"])
 
+    # tickets refunded as "pool not offered" although the pool's dividends are in (settled too
+    # early while racing) -> re-settle automatically (runs inside the cloud loop, so the cloud DB
+    # itself is corrected)
+    from . import paper as _paper
+    since60 = (now - timedelta(days=60)).strftime("%Y-%m-%d")
+    wrong = _paper.wrong_pool_refunds(conn, since=since60)
+    if wrong:
+        add("wrong_refunds", "warn", f"有 {len(wrong)} 張模擬注之前被錯當退款，要重新結算", "resettle",
+            since=since60)
+    # already re-settled once and STILL looks wrong: don't loop, tell Kane (error pages once)
+    stuck = sorted(set(_paper.wrong_pool_refunds(conn, since=since60, include_resettled=True)) - set(wrong))
+    if stuck:
+        add("wrong_refunds_stuck", "error",
+            f"有 {len(stuck)} 張模擬注重新結算後仍然似退款錯誤（ticket {', '.join(map(str, stuck[:10]))}），要人手查",
+            None)
+
     # website freshness
     idx = ROOT / "site" / "data" / "index.json"
     last = conn.execute("SELECT MAX(created_at) FROM runs WHERE kind!='walkforward'").fetchone()[0]
@@ -126,6 +171,8 @@ def fix(conn, issues) -> list[str]:
                 cli.cmd_scores(conn, force=True)
             elif f == "pre":
                 cli.cmd_pre(conn)
+            elif f == "race_bet_missed":
+                cli.race_bet_missed(conn, it["date"], it["venue"], it["race_no"])
             elif f == "live":
                 cli.cmd_live(conn, it["date"], it["venue"])
             elif f == "post":
@@ -133,6 +180,10 @@ def fix(conn, issues) -> list[str]:
             elif f == "settle":
                 paper.settle(conn, it["date"])
                 cli._publish(conn, f"補結算 {it['date']}")
+            elif f == "resettle":
+                res = paper.resettle_wrong_refunds(conn, since=it.get("since"))
+                log.warning("health: re-settled %s wrongly refunded tickets (%s)", res["reopened"], res["dates"])
+                cli._publish(conn, f"重新結算 {res['reopened']} 張注")
             elif f == "publish":
                 cli._publish(conn, "網站補更新")
             else:

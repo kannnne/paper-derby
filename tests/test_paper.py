@@ -306,3 +306,93 @@ def test_replace_voids_all_strategies_of_earlier_run(conn):
                   ("run2", "PLA_6x63", "open")]
     assert paper.bankroll(conn) == pytest.approx(10000 - 630)
     assert _balance_check(conn) == pytest.approx(paper.bankroll(conn), abs=0.005)
+
+
+def test_exotic_pool_not_published_yet_waits(tmp_path):
+    """While racing, the preliminary page has WIN/PLA... but not FF yet: a FF ticket must wait
+    (old behaviour: settled at once as 'pool not offered' refund).  Once FF is in, it settles;
+    if the meeting ends without any FF rows, it is refunded."""
+    divs = {1: {"WIN": {"3": 42.0}, "PLA": {"3": 17.5, "5": 20.0, "7": 15.0}}}
+    c = build_meeting_db(tmp_path / "t.db", divs=divs, status="provisional")
+    t = {"strategy": "FF_box", "ticket_no": 1, "pool": "FF", "spec": None, "unit_stake": 10.0,
+         "legs": [{"race_no": 1, "pool": "FF", "selections": [3, 5, 7, 9]}]}
+    paper.place_tickets(c, "r", DATE, VENUE, [t])
+    assert paper.settle(c, DATE) == 0                                 # FF not published yet
+    assert c.execute("SELECT status FROM paper_tickets").fetchone()[0] == "open"
+    rid = f"{DATE.replace('-', '')}-{VENUE}-01"
+    c.execute("INSERT INTO dividends VALUES (?,?,?,?)", (rid, "FF", "3,5,7,9", 230.0))
+    c.commit()
+    assert paper.settle(c, DATE) == 1
+    r = c.execute("SELECT payout FROM paper_tickets").fetchone()
+    assert r[0] == pytest.approx(230.0)
+    assert _balance_check(c) == pytest.approx(10000 - 10 + 230)
+
+    # meeting final and still no QTT rows -> genuinely not offered -> refund
+    t2 = {"strategy": "QTT_x", "ticket_no": 2, "pool": "QTT", "spec": None, "unit_stake": 10.0,
+          "legs": [{"race_no": 1, "pool": "QTT", "positions": [[3], [5], [7], [9]]}]}
+    paper.place_tickets(c, "r2", DATE, VENUE, [t2], replace=False)
+    assert paper.settle(c, DATE) == 0
+    c.execute("UPDATE meetings SET status='results'")
+    c.commit()
+    assert paper.settle(c, DATE) == 1
+    assert c.execute("SELECT payout FROM paper_tickets WHERE ticket_no=2").fetchone()[0] == pytest.approx(10.0)
+
+
+def test_resettle_wrong_pool_refunds(tmp_path):
+    """Tickets refunded as 'pool not offered' although the pool's dividends are in now get
+    re-opened and settled again; the ledger stays consistent."""
+    divs = {1: {"WIN": {"3": 42.0}, "PLA": {"3": 17.5, "5": 20.0, "7": 15.0}}}
+    c = build_meeting_db(tmp_path / "t.db", divs=divs, status="results")
+    t = {"strategy": "FF_box", "ticket_no": 1, "pool": "FF", "spec": None, "unit_stake": 10.0,
+         "legs": [{"race_no": 1, "pool": "FF", "selections": [3, 5, 7, 9]}]}
+    paper.place_tickets(c, "r", DATE, VENUE, [t])
+    assert paper.settle(c, DATE) == 1                                 # final + no FF rows -> refund 10
+    assert paper.bankroll(c) == pytest.approx(10000.0)
+    rid = f"{DATE.replace('-', '')}-{VENUE}-01"
+    c.execute("INSERT INTO dividends VALUES (?,?,?,?)", (rid, "FF", "3,5,7,9", 230.0))
+    c.commit()
+    assert paper.wrong_pool_refunds(c) == [1]
+    res = paper.resettle_wrong_refunds(c)
+    assert res["reopened"] == 1 and res["settled"] == 1
+    assert c.execute("SELECT payout, status FROM paper_tickets").fetchone()[:] == (230.0, "settled")
+    assert paper.bankroll(c) == pytest.approx(10000 - 10 + 230)
+    _balance_check(c)
+    assert paper.wrong_pool_refunds(c) == []                          # idempotent
+
+
+def test_void_race_refund_is_not_resettled(tmp_path):
+    """A void race (every pool refunded) is a genuine refund, not a wrongly-settled ticket."""
+    divs = {1: {"WIN": {"REFUND": 10.0}, "PLA": {"REFUND": 10.0}}}
+    c = build_meeting_db(tmp_path / "t.db", divs={2: {"WIN": {"3": 42.0}, "PLA": {"3": 17.5}}}, status="results")
+    rid = f"{DATE.replace('-', '')}-{VENUE}-01"
+    c.execute("INSERT INTO races (race_id, date, venue, race_no) VALUES (?,?,?,1)", (rid, DATE, VENUE))
+    for pool, m in divs[1].items():
+        for comb, dv in m.items():
+            c.execute("INSERT INTO dividends VALUES (?,?,?,?)", (rid, pool, comb, dv))
+    c.commit()
+    t = {"strategy": "PLA_top", "ticket_no": 1, "pool": "PLA", "spec": None, "unit_stake": 10.0,
+         "legs": [{"race_no": 1, "pool": "PLA", "selections": [2]}]}
+    paper.place_tickets(c, "r", DATE, VENUE, [t])
+    assert paper.settle(c, DATE) == 1
+    assert c.execute("SELECT payout FROM paper_tickets").fetchone()[0] == pytest.approx(10.0)
+    assert paper.wrong_pool_refunds(c) == []
+
+
+def test_multi_race_all_refund_detected_and_resettled(tmp_path):
+    """A DBL ticket settled as a full refund while the pool's rows were not published yet
+    (old bug: every unit 'refund') is found by wrong_pool_refunds and settled correctly."""
+    divs = {1: {"WIN": {"1": 30.0}, "PLA": {"1": 12.0}}, 2: {"WIN": {"2": 40.0}, "PLA": {"2": 14.0}}}
+    c = build_meeting_db(tmp_path / "t.db", divs=divs, status="results")
+    t = {"strategy": "daily_picks:DBL", "ticket_no": 1, "pool": "DBL", "spec": None, "unit_stake": 10.0,
+         "legs": [{"race_no": 1, "pool": "DBL", "selections": [1, 4]}, {"race_no": 2, "pool": "DBL", "selections": [2]}]}
+    paper.place_tickets(c, "r", DATE, VENUE, [t])
+    assert paper.settle(c, DATE) == 1                         # final, no DBL rows -> every unit refunded
+    assert c.execute("SELECT payout FROM paper_tickets").fetchone()[0] == pytest.approx(20.0)
+    rid2 = f"{DATE.replace('-', '')}-{VENUE}-02"
+    c.execute("INSERT INTO dividends VALUES (?,?,?,?)", (rid2, "DBL", "1/2", 95.0))
+    c.commit()
+    assert paper.wrong_pool_refunds(c) == [1]
+    paper.resettle_wrong_refunds(c)
+    assert c.execute("SELECT payout FROM paper_tickets").fetchone()[0] == pytest.approx(95.0)
+    assert paper.bankroll(c) == pytest.approx(10000 - 20 + 95)
+    _balance_check(c)

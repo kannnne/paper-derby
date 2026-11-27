@@ -113,6 +113,7 @@ NUM = (int, float)
 OPT_NUM = (int, float, type(None))
 OPT_STR = (str, type(None))
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+MIN_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$")
 
 
 def _req(obj, spec, where):
@@ -124,7 +125,8 @@ def _req(obj, spec, where):
 
 def validate_index(d):
     _req(d, {"updated_at": str, "disclaimer": str, "next_meeting": (dict, type(None)), "meetings": list,
-             "bots": list}, "index")
+             "bots": list, "n_settled_meetings": int, "sample_note": OPT_STR}, "index")
+    assert (d["sample_note"] is None) == (d["n_settled_meetings"] >= publish.SAMPLE_MIN)
     assert "1834 633" in d["disclaimer"] and "非投注建議" in d["disclaimer"]
     if d["next_meeting"]:
         _req(d["next_meeting"], {"date": str, "venue": str, "first_post_time": OPT_STR}, "next_meeting")
@@ -134,7 +136,9 @@ def validate_index(d):
         assert m["file"] == f"data/meetings/{m['date']}_{m['venue']}.json"
     for b in d["bots"]:
         _req(b, {"id": str, "name": str, "style": str, "description": str, "bankroll": NUM, "start_bankroll": NUM,
-                 "live": dict}, "bots[]")
+                 "live": dict, "n_meetings": int}, "bots[]")
+        assert b["n_meetings"] == b["live"]["n_meetings"]
+        assert isinstance(b["uncapped"], bool) and isinstance(b["note"], str) and bool(b["note"]) == b["uncapped"]
         assert "backtest" not in b, "backtest figures must not be published (live paper results only)"
         _req(b["live"], {"n_meetings": int, "stake": NUM, "returns": NUM, "profit": NUM, "roi": OPT_NUM,
                          "hit_rate": OPT_NUM}, "bots[].live")
@@ -159,16 +163,27 @@ def validate_meeting(d):
         for x in r["decisions"]:
             _req(x, {"bot_id": str, "action": str, "structure": str, "selections": (list, dict), "stake": NUM,
                      "reason": str, "payout": OPT_NUM, "profit": OPT_NUM}, "decision")
-            assert x["action"] in ("bet", "skip")
+            assert x["action"] in ("bet", "skip", "pending")
+            if x["action"] == "pending":       # 待定: single race decided ~8 min before the race
+                assert x["pending"] is True and x["ticket_status"] == "pending" and x["payout"] is None
+                assert x["decide_at"] is None or MIN_RE.match(x["decide_at"])
         if r["result"] is not None:
             _req(r["result"], {"placings": list, "dividends": dict}, "race.result")
             for pool, rows in r["result"]["dividends"].items():
                 assert pool in publish.RESULT_POOLS
                 assert all(isinstance(c, str) and isinstance(v, OPT_NUM) for c, v in rows)
     assert "note" not in d, "the 賽後補做 notice is no longer published"
+    _req(d, {"pending": bool, "pending_races": list, "next_decide_at": OPT_STR}, "meeting")
     for b in d["bots"]:
         _req(b, {"bot_id": str, "stake": NUM, "payout": OPT_NUM, "profit": OPT_NUM, "tickets": list,
-                 "skips": list}, "meeting.bots")
+                 "skips": list, "n_pending": int, "pending_stake": NUM}, "meeting.bots")
+        pend = [t for t in b["tickets"] if t["status"] == "pending"]
+        assert len(pend) == b["n_pending"] and b["pending_stake"] == pytest.approx(sum(t["total_stake"] for t in pend))
+        assert b["stake"] == pytest.approx(sum(t["total_stake"] for t in b["tickets"] if t["status"] != "pending"))
+        if pend:
+            assert b["payout"] is None and b["profit"] is None
+        for t in pend:
+            assert t["pending"] is True and t["ticket_id"] is None and MIN_RE.match(t["decide_at"] or "")
         for t in b["tickets"]:
             _req(t, {"strategy": str, "legs": list, "total_stake": NUM, "payout": OPT_NUM, "profit": OPT_NUM,
                      "reason": str, "status": str, "race_no": int, "structure": str, "selections": (list, dict),
@@ -177,6 +192,8 @@ def validate_meeting(d):
             assert (t["payout"] is None) == (t["status"] != "settled")
         for x in b["skips"]:
             _req(x, {"race_no": int, "structure": str, "reason": str}, "skip")
+            if x.get("pending"):
+                assert x["decide_at"] is None or MIN_RE.match(x["decide_at"])
     assert isinstance(d.get("preview", False), bool)
     if d.get("preview"):          # 預覽（未落注）: pseudo-tickets only, never a payout
         assert d.get("preview_at")
@@ -197,7 +214,9 @@ def validate_picks(p):
              "banker": (dict, type(None))}, "picks")
     assert p["title"] == "今日精選"
     assert p["n_items"] == len(p["items"])
-    assert p["total_stake"] == pytest.approx(sum(i["stake"] for i in p["items"]))
+    # missed items (錯過落注時間) were never bought: not in the total
+    assert p["total_stake"] == pytest.approx(sum(i["stake"] for i in p["items"] if i.get("status") != "missed" and not i.get("no_bet")))
+    assert p.get("n_pending", 0) == sum(1 for i in p["items"] if i.get("status") == "pending")
     secs = [i["section"] for i in p["items"]]
     assert secs == sorted(secs, key=SECTION_ORDER.index), "items grouped by section in order"
     for it in p["items"]:
@@ -212,6 +231,11 @@ def validate_picks(p):
         assert it["odds_source"] in ("即時賠率", "估計賠率") and it["grade"] == "精選"
         assert 0 <= it["hit_prob"] <= 1 and it["stake"] == pytest.approx(it["n_combos"] * it["unit_stake"])
         assert it["race_no"] == max(it["races"])
+        assert it.get("status", "final") in ("pending", "final", "missed")
+        if it.get("status") == "pending":
+            assert MIN_RE.match(it["decide_at"]) and it["result"] is None
+        if it.get("status") == "missed":
+            assert it["result"] is None
         for k in ("ticket", "legs_raw", "key"):
             assert k not in it, f"internal field {k} published"
         assert "上名率" not in it["reason"] and "參考" not in it["reason"]
@@ -599,3 +623,149 @@ def test_bots_grouped_tickets_and_skips(conn, tmp_path):
 def test_reason_text_renamed():
     assert publish._reason_txt("（注碼計喺過關飛，見第0場）") == "（注碼計喺過關飛，見「過關決定」）"
     assert publish._reason_txt("今日冇過關飛（原因見第0場跨場決定；x）") == "今日冇過關飛（原因見「過關決定」；x）"
+
+
+# ------------------------------------------------------------------ 待定: single-race bets decided ~8 min before each race
+PENDING_REASON = "待定（開跑前約 8 分鐘用最新賠率決定）而家預覽：1號 入三甲機率高"
+
+
+def _add_decisions(c, rows):
+    c.executemany("INSERT INTO bot_decisions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                  [(*d[:7], json.dumps(d[7], ensure_ascii=False), *d[8:]) for d in rows])
+    c.commit()
+
+
+def test_pending_and_missed_single_race_decisions(conn, tmp_path):
+    t10, t19 = f"{FUT}T10:00:00", f"{FUT}T19:07:00"
+    _add_decisions(conn, [
+        ("pre-fut", "place_only", FUT, "HV", 1, "pending", "PLA 位置", [1, 2], 20.0, PENDING_REASON, None, t10),
+        ("pre-fut", "monkey", FUT, "HV", 1, "pending", "PLA 隨機", [], 0.0, "待定（開跑前約 8 分鐘用最新賠率決定）而家預覽：唔買", None, t10),
+        ("pre-fut", "tri_banker", FUT, "HV", 1, "skip", "TRI 膽2x腳4", [], 0.0, "錯過開跑前落注時間，冇落注", None, t19),
+        # multi-race row at T-2h + its single-race row re-decided later in the same run_id: both kept
+        ("pre-fut", "fixed_combo", FUT, "HV", 0, "bet", "PLA 6x63", [{"race_no": 1, "selections": [1]}], 630.0, "固定", None, t10),
+        ("pre-fut", "fixed_combo", FUT, "HV", 1, "skip", "過關腳", [], 0.0, "唔係過關腳", None, t19),
+        # results meeting: a left-over pending row is shown as missed
+        ("pre-past", "qpl_box", PAST, "ST", 1, "pending", "QPL 複式3", [1, 2, 3], 30.0, PENDING_REASON, None, f"{PAST}T10:00:00"),
+    ])
+    out = tmp_path / "s"
+    publish.export_site(conn, out)
+    idx = _load(out / "data" / "index.json")
+    validate_index(idx)
+    for mm in idx["meetings"]:
+        validate_meeting(_load(out / mm["file"]))
+    assert {mm["date"]: mm["has_pending"] for mm in idx["meetings"]} == {FUT: True, PAST: False}
+    f = _load(out / "data" / "meetings" / f"{FUT}_HV.json")
+    assert f["pending"] is True and f["pending_races"] == [1] and f["next_decide_at"] == f"{FUT}T19:07"
+    fb = {b["bot_id"]: b for b in f["bots"]}
+    po = fb["place_only"]
+    assert po["stake"] == 0 and po["n_tickets"] == 0 and po["n_pending"] == 1 and po["pending_stake"] == 20.0
+    t = po["tickets"][0]
+    assert t["status"] == "pending" and t["payout"] is None and t["decide_at"] == f"{FUT}T19:07"
+    assert t["selections"] == [1, 2] and t["reason"].startswith("待定")
+    assert fb["monkey"]["tickets"] == [] and fb["monkey"]["skips"][0]["pending"] is True
+    assert fb["monkey"]["skips"][0]["decide_at"] == f"{FUT}T19:07"
+    assert fb["tri_banker"]["skips"][0]["missed"] is True
+    d = {(x["bot_id"], x["race_no"]): x for r in f["races"] for x in r["decisions"]}
+    assert d[("place_only", 1)]["action"] == "pending" and d[("place_only", 1)]["ticket_status"] == "pending"
+    assert d[("tri_banker", 1)]["missed"] is True
+    assert ("fixed_combo", 1) in d and [x["bot_id"] for x in f["meeting_decisions"]] == ["fixed_combo"]
+    # pending stakes never reach bankrolls / live stats / the robot's ticket file
+    bots = {b["id"]: b for b in idx["bots"]}
+    assert bots["place_only"]["live"]["stake"] == 20.0 and bots["place_only"]["bankroll"] == 9994.0
+    assert bots["place_only"]["live"]["open_stake"] == 0
+    assert _load(out / "data" / "bots" / "place_only.json")["n_tickets"] == 1
+    m = _load(out / "data" / "meetings" / f"{PAST}_ST.json")
+    qb = {b["bot_id"]: b for b in m["bots"]}["qpl_box"]
+    assert qb["tickets"] == [] and qb["skips"] == [{"race_no": 1, "structure": "QPL 複式3",
+                                                     "reason": publish.MISSED_LEFTOVER, "missed": True}]
+    assert not m["pending"]
+
+
+def test_sample_note(conn, tmp_path):
+    out = tmp_path / "s"
+    publish.export_site(conn, out)
+    idx = _load(out / "data" / "index.json")
+    assert idx["n_settled_meetings"] == 1
+    assert idx["sample_note"] == "暫時只有 1 個賽馬日，樣本仲細，短期輸贏好受運氣影響。"
+    assert {b["id"]: b["n_meetings"] for b in idx["bots"]}["place_only"] == 1
+    assert publish.sample_note(0).startswith("暫時未有") and publish.sample_note(publish.SAMPLE_MIN) is None
+    dp = {b["id"]: b for b in idx["bots"]}["daily_picks"]
+    assert dp["uncapped"] is True and dp["note"] == publish.UNCAPPED_NOTE
+    assert {b["id"]: b for b in idx["bots"]}["place_only"]["uncapped"] is False
+
+
+def test_negative_bankroll_exported(conn, tmp_path):
+    """daily_picks is not limited by its bankroll: a negative balance is exported as is."""
+    conn.execute("INSERT INTO bankroll_ledger (ts, note, amount, balance, bot_id) VALUES (?,?,?,?,?)",
+                 (f"{PAST}T23:00:00", "adjust", -11234.5, -1234.5, "daily_picks"))
+    conn.commit()
+    out = tmp_path / "s"
+    publish.export_site(conn, out)
+    idx = _load(out / "data" / "index.json")
+    validate_index(idx)
+    assert {b["id"]: b for b in idx["bots"]}["daily_picks"]["bankroll"] == -1234.5
+
+
+def test_picks_pending_and_missed_items(conn, tmp_path, monkeypatch):
+    pk, _ = _run_daily_picks(conn)
+    items = pk["items"]
+    items[0]["status"] = "missed"
+    items[1]["status"] = "pending"
+    items[1]["decide_at"] = f"{PAST}T12:52"
+    for it in items[2:]:
+        it["status"] = "final"
+    items[2]["decided_at"] = f"{PAST}T12:52"
+    conn.execute("UPDATE picks SET payload=? WHERE run_id='pre-past'", (json.dumps(pk, ensure_ascii=False, default=str),))
+    tid = {json.loads(t["detail"])["notes"]["pick_key"]: t["ticket_id"] for t in conn.execute(
+        "SELECT ticket_id, detail FROM paper_tickets WHERE bot_id='daily_picks'")}
+    for it in items[:2]:                 # neither the missed nor the pending item has a ticket
+        conn.execute("UPDATE paper_tickets SET status='void' WHERE ticket_id=?", (tid[it["key"]],))
+    conn.commit()
+    paper.settle(conn, PAST)
+    with monkeypatch.context() as mp:       # as if the races were still to run
+        mp.setattr(publish, "_races_done", lambda byrn, item: False)
+        p = publish.export_meeting(conn, PAST, "ST")["picks"]
+    validate_picks(p)
+    got = p["items"]
+    assert got[0]["status"] == "missed" and got[0]["result"] is None
+    assert got[1]["status"] == "pending" and got[1]["decide_at"] == f"{PAST}T12:52" and got[1]["result"] is None
+    assert got[2]["decided_at"] == f"{PAST}T12:52" and got[2]["result"] is not None
+    assert p["n_missed"] == 1 and p["n_pending"] == 1 and p["next_decide_at"] == f"{PAST}T12:52"
+    assert p["total_stake"] == pytest.approx(sum(i["stake"] for i in items[1:]))
+    assert p["total_payout"] is None                      # the pending item is not settled
+    # races run but the pending item never got a ticket: shown as missed, no hypothetical result
+    p = publish.export_meeting(conn, PAST, "ST")["picks"]
+    validate_picks(p)
+    assert p["items"][1]["status"] == "missed" and p["items"][1]["result"] is None and p["n_missed"] == 2
+    # once the pending item is final (and bought) the day settles without the missed item
+    pk["items"][1]["status"] = "final"
+    conn.execute("UPDATE picks SET payload=? WHERE run_id='pre-past'", (json.dumps(pk, ensure_ascii=False, default=str),))
+    conn.execute("UPDATE paper_tickets SET status='open' WHERE ticket_id=?", (tid[items[1]["key"]],))
+    conn.commit()
+    paper.settle(conn, PAST)
+    p = publish.export_meeting(conn, PAST, "ST")["picks"]
+    validate_picks(p)
+    pays = [i["result"]["payout"] for i in p["items"][1:]]
+    assert p["total_payout"] == pytest.approx(sum(pays))
+    assert p["total_profit"] == pytest.approx(p["total_payout"] - p["total_stake"])
+
+
+def test_picks_no_bet_item_has_no_result_and_is_out_of_totals(conn, tmp_path):
+    """An item re-evaluated at race time with no candidate (final, no_bet, no ticket) must not get a
+    hypothetical result, must not count in totals, and must not block the day's settled totals."""
+    pk, _ = _run_daily_picks(conn)
+    items = pk["items"]
+    for it in items:
+        it["status"] = "final"
+    items[0]["no_bet"] = True
+    conn.execute("UPDATE picks SET payload=? WHERE run_id='pre-past'", (json.dumps(pk, ensure_ascii=False, default=str),))
+    tid = {json.loads(t["detail"])["notes"]["pick_key"]: t["ticket_id"] for t in conn.execute(
+        "SELECT ticket_id, detail FROM paper_tickets WHERE bot_id='daily_picks'")}
+    conn.execute("UPDATE paper_tickets SET status='void' WHERE ticket_id=?", (tid[items[0]["key"]],))
+    conn.commit()
+    paper.settle(conn, PAST)
+    p = publish.export_meeting(conn, PAST, "ST")["picks"]
+    validate_picks(p)
+    assert p["items"][0]["result"] is None
+    assert p["total_stake"] == pytest.approx(sum(i["stake"] for i in items[1:]))
+    assert p["total_payout"] == pytest.approx(sum(i["result"]["payout"] for i in p["items"][1:]))

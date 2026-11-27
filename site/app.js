@@ -55,6 +55,9 @@
     var s = money(Math.abs(v));
     return (v > 0.004 ? "+" : v < -0.004 ? "−" : "") + s;
   }
+  // bankroll amount: negative (an uncapped robot that keeps buying) shown as −$1,234 in red
+  function bankMoney(v) { return ok(v) && v < -0.004 ? '<span class="neg">' + money(v) + "</span>" : money(v); }
+  function botNote(b, cls) { return b && b.note ? '<div class="bot-note ' + (cls || "") + '">' + esc(b.note) + "</div>" : ""; }
   function equity(b) {
     if (!b || !ok(b.bankroll)) return null;
     return b.bankroll + ((b.live && ok(b.live.open_stake)) ? b.live.open_stake : 0);
@@ -102,6 +105,16 @@
     var ts = (m && (m.odds_snapshot_at || m.preview_at || (m.picks && m.picks.preview_at))) || "";
     return '<div class="pv-mini" role="note"><span class="pv-chip">預覽</span><span class="muted small">更新 ' +
       esc(String(ts).replace("T", " ").slice(0, 16)) + "</span></div>";
+  }
+  // 待定: single-race bets are decided ~8 minutes before each race with the latest odds
+  // (multi-race bets — 過關、孖寶、三寶 — are placed about 2 hours before the first race)
+  function isPending(t) { return !!(t && (t.status === "pending" || t.pending === true)); }
+  function pendReason(txt) { return String(ok(txt) ? txt : "").replace(/^待定（[^）]*）/, ""); }
+  function pendChip(sm) { return '<span class="pd-chip' + (sm ? " sm" : "") + '">待定 · 開跑前約 8 分鐘決定</span>'; }
+  function pendAt(at) { return at ? '<span class="pd-at">約 ' + hhmm(at) + " 決定</span>" : ""; }
+  function sampleNoteHtml(idx) {
+    var t = idx && idx.sample_note;
+    return t ? '<p class="sample-note" role="note"><span class="sn-i" aria-hidden="true">i</span><span>' + esc(t) + "</span></p>" : "";
   }
   function meetingName(m) { return dateZh(m.date) + " " + esc(m.venue_zh || VENUE_ZH[m.venue] || m.venue); }
 
@@ -318,7 +331,8 @@
     loadMeeting(meetingId(mtg)).then(function (m) {
       if (!document.body.contains(el)) return;
       var nm = idx.next_meeting, isNext = nm && m.date === nm.date && m.venue === nm.venue;
-      setSub((isNext ? "下一個賽馬日" : "最近一個賽馬日") + (m.preview ? " · 預覽（未落注）" : " · 正式落注"));
+      setSub((isNext ? "下一個賽馬日" : "最近一個賽馬日") + (m.preview ? " · 預覽（未落注）" : " · 正式落注") +
+        (m.pending && (m.pending_races || []).length ? " · " + m.pending_races.length + " 場單場注待定" : ""));
       var by = {};
       (m.bots || []).forEach(function (b) { by[b.bot_id] = b; });
       var list = (idx.bots || []).slice().sort(function (a, b) { return a.no - b.no; });
@@ -327,10 +341,14 @@
       function render() {
         var html = '<div class="hr-head"><b>' + meetingName(m) + '</b> <a class="hs-link" href="#/meeting/' + meetingId(m) + '">完整賽馬日頁 →</a></div>';
         if (m.preview) html += previewBanner(m);
+        if (m.pending) html += pendNote(m);
         html += '<div class="hr-picker" role="group" aria-label="揀機械人">' + list.map(function (b) {
-          var t = by[b.id] ? (by[b.id].tickets || []).length : 0;
+          var all = by[b.id] ? (by[b.id].tickets || []) : [];
+          var np = all.filter(isPending).length, t = all.length - np;
+          var ns = by[b.id] ? (by[b.id].skips || []).filter(function (x) { return x.pending; }).length : 0;
+          var lbl = t && np ? t + " 張 · " + np + " 待定" : t ? t + " 張" : np ? np + " 待定" : ns ? "待定" : "唔買";
           return '<button type="button" class="hr-bot' + (b.id === sel.id ? " on" : "") + '" data-id="' + esc(b.id) + '" aria-pressed="' + (b.id === sel.id) + '">' +
-            botToken(b, "xs") + "<span>" + esc(b.name) + "</span><small>" + (t ? t + " 張" : "唔買") + "</small></button>";
+            botToken(b, "xs") + "<span>" + esc(b.name) + "</span><small>" + lbl + "</small></button>";
         }).join("") + "</div>";
         html += robotCard(sel, by[sel.id], m);
         el.innerHTML = html;
@@ -497,29 +515,37 @@
   }
   function pkItem(it, m, look) {
     var fam = poolFam(it), ref = it.grade === "參考";
+    var pend = it.status === "pending", missed = it.status === "missed", nobet = !!it.no_bet && !missed;
     var legs = it.legs || [];
     var multi = it.kind === "multi_race" || it.kind === "allup" || legs.length > 1;
     var res = it.result && typeof it.result === "object" ? it.result : null;
     var st = res ? (res.hit === true ? " is-hit" : res.hit === false ? " is-miss" : "") : "";
     var src = it.odds_source ? '<span class="pk-src' + (it.odds_source === "即時賠率" ? " live" : "") + '">' + esc(it.odds_source) + "</span>" : "";
-    var html = '<li class="pk-it fam-' + fam + (ref ? " is-ref" : "") + st + '">';
+    var html = '<li class="pk-it fam-' + fam + (ref ? " is-ref" : "") + st + (pend ? " is-pending" : "") + (missed || nobet ? " is-missed-time" : "") + '">';
     html += '<div class="pk-wh">' + pkWhere(it, m) + "</div>";
     html += '<div class="pk-mn"><div class="pk-it-h"><span class="pk-pool fam-' + fam + '">' + esc(poolName(it)) + "</span>" +
       (it.structure_zh ? '<span class="pk-struct">' + esc(it.structure_zh) + "</span>" : "") + src +
       (ref ? '<span class="pk-reftag">未過門檻，只供參考</span>' : "") +
-      (it.star ? '<span class="pk-star" title="分析估計回報過門檻">⭐ 值博</span>' : "") + "</div>";
+      (it.star ? '<span class="pk-star" title="分析估計回報過門檻">⭐ 值博</span>' : "") +
+      (pend ? '<span class="pd-chip sm">待定 · 而家預覽</span>' : "") + (missed ? '<span class="miss-tag">錯過時間</span>' : "") + (nobet ? '<span class="miss-tag">開跑前再計：唔買</span>' : "") + "</div>";
     html += '<div class="pk-sel">' + (legs.length ? legs.map(function (l) { return pkLeg(l, it, look, multi); }).join("") : '<span class="muted small">未有選擇</span>') + "</div></div>";
     var combos = ok(it.n_combos) ? it.n_combos + " 注 × " + money(it.unit_stake) : "";
     html += '<div class="pk-mo"><div class="pk-stake">' + (combos ? "<small>" + combos + " =</small>" : "") + '<b class="num">' + money(it.stake) + "</b></div>" +
       '<div class="pk-kv"><span>命中機率</span><b class="num">' + probTxt(it.hit_prob) + "</b></div>" +
       (function () {
         var full = ok(it.max_return) ? it.max_return : it.est_return_if_hit;
-        if (!ok(full) || res) return "";
+        if (!ok(full) || res || missed || nobet) return "";
         return '<div class="pk-kv"><span title="所有關／所有選擇都中嘅派彩">中晒約派</span><b class="num">' + money(full, 0) + "</b></div>" +
           (ok(it.stake) && it.stake > 0 ? '<div class="pk-kv"><span title="（中晒約派 − 成本）÷ 成本">中晒回報</span>' +
             roiSpan(full / it.stake - 1) + "</div>" : "");
       })();
-    if (res && ok(res.payout)) {
+    if (pend) {
+      html += '<div class="pk-out pk-pend">開跑前約 8 分鐘用最新賠率決定' + (it.decide_at ? "（" + hhmm(it.decide_at) + "）" : "") + "</div>";
+    } else if (missed) {
+      html += '<div class="pk-out pk-missed">錯過時間，冇落注</div>';
+    } else if (nobet) {
+      html += '<div class="pk-out pk-missed">開跑前再計之後唔買，冇落注</div>';
+    } else if (res && ok(res.payout)) {
       html += '<div class="pk-out">' + mark(res.hit, "中", "唔中") + "<span>派彩 <b class=num>" + money(res.payout) + "</b></span>" + plSpan(res.profit) + "</div>";
     } else if (res && res.hit !== undefined && res.hit !== null) {
       html += '<div class="pk-out">' + mark(res.hit, "中", "唔中") + "<span>" + (res.hit ? "中" : "唔中") + "</span></div>";
@@ -527,6 +553,7 @@
       html += '<div class="pk-out muted small">' + (m.status === "results" ? "未結算" : "等賽果") + "</div>";
     }
     if (res && ok(res.detail) && typeof res.detail !== "object") html += '<div class="pk-detail small muted">' + esc(res.detail) + "</div>";
+    if (!pend && !missed && it.decided_at) html += '<div class="pk-detail small muted">' + hhmm(it.decided_at) + " 用最新賠率決定</div>";
     html += "</div>";
     html += pkReason(it.reason) + "</li>";
     return html;
@@ -615,6 +642,9 @@
     });
     var nItems = ok(p.n_items) ? p.n_items : all.length;
     var nStar = ok(p.n_star) ? p.n_star : all.filter(function (x) { return x.star; }).length;
+    var nPend = all.filter(function (x) { return x.status === "pending"; }).length;
+    var nMiss = all.filter(function (x) { return x.status === "missed"; }).length;
+    function bought(x) { return x.status !== "missed" && !x.no_bet; }
     var settled = ok(p.total_payout);
     var dp = (state.index.bots || []).filter(function (b) { return b.id === "daily_picks"; })[0];
     var html = '<article class="picks pk2 pk3' + (isPreview(m) ? " is-preview" : "") + '" aria-label="今日精選 ' + esc(m.date) + '">';
@@ -624,11 +654,14 @@
     html += '<div class="pk-sum"><span class="pk-count"><b class="num">' + esc(nItems) + "</b> 項精選</span>" +
       '<span class="pk-count"><b class="num">' + esc(nStar) + "</b> 項 ⭐ 值博</span>" +
       (isPreview(m) ? '<span class="pv-chip">預覽</span>' : "") +
+      (nPend ? '<span class="pd-chip">' + nPend + " 項待定 · 開跑前約 8 分鐘決定</span>" : "") +
+      (nMiss ? '<span class="miss-tag">' + nMiss + " 項錯過時間</span>" : "") +
       (p.generated_at ? '<span class="pk-sum-i muted">更新 ' + esc(String(p.generated_at).replace("T", " ").slice(0, 16)) + "</span>" : "") + "</div>";
     if (settled) {
       html += '<div class="pk-final"><span>全日結算</span><span>派彩 <b class=num>' + money(p.total_payout, 2) + "</b></span>" + plSpan(p.total_profit) +
-        (all.length ? '<span class="small muted">中 ' + all.filter(function (x) { return x.result && x.result.hit === true; }).length + " / " + all.length + " 項</span>" : "") + "</div>";
+        (all.length ? '<span class="small muted">中 ' + all.filter(function (x) { return x.result && x.result.hit === true; }).length + " / " + all.filter(bought).length + " 項</span>" : "") + "</div>";
     }
+    if (nPend) html += '<p class="small muted pk-pend-note">單場精選喺每場開跑前約 8 分鐘用最新賠率先決定；而家顯示嘅係預覽，到時可能會變。過關、孖寶、三寶第一場開跑前約 2 小時已經定。</p>';
     if (!all.length) {
       html += '<div class="pk-none"><b>今日冇精選</b><span class="small muted">未有賠率或者模型預測，計唔到任何玩法。</span></div>';
     }
@@ -639,7 +672,7 @@
     if (all.length) {
       html += '<section class="pk-sec pk-stars" aria-label="⭐ 值博">' +
         '<h3 class="pk-sec-h"><span class="pk-star">⭐ 值博</span><small class="num">' + starred.length + " 項 · " +
-        money(starred.reduce(function (a, x) { return a + (ok(x.stake) ? +x.stake : 0); }, 0), 0) + "</small></h3>" +
+        money(starred.filter(bought).reduce(function (a, x) { return a + (ok(x.stake) ? +x.stake : 0); }, 0), 0) + "</small></h3>" +
         (starred.length ? '<ol class="pk-items">' + starred.map(function (it) { return pkItem(it, m, look); }).join("") + "</ol>"
           : '<p class="small muted pk-nostar">今日冇玩法過值博門檻；下面係每種玩法當日最好嘅選擇，只供參考。</p>') + "</section>";
       if (starred.length) html += '<h3 class="pk-others-h small muted">其他玩法（每種玩法當日最好嘅選擇，未必值博）</h3>';
@@ -648,8 +681,9 @@
       var its = groups[k].filter(function (x) { return !x.star; }).sort(function (a, b) { return (a.rank || 99) - (b.rank || 99); });
       if (!its.length) return;
       var fam = SECTION_FAM[k] || poolFam(its[0]);
-      var stake = its.reduce(function (a, x) { return a + (ok(x.stake) ? +x.stake : 0); }, 0);
-      var done = its.every(function (x) { return x.result && ok(x.result.payout); });
+      var bits = its.filter(bought);
+      var stake = bits.reduce(function (a, x) { return a + (ok(x.stake) ? +x.stake : 0); }, 0);
+      var done = bits.length > 0 && bits.every(function (x) { return x.result && ok(x.result.payout); });
       var pay = its.reduce(function (a, x) { return a + (x.result && ok(x.result.payout) ? +x.result.payout : 0); }, 0);
       var stars = 0;
       html += '<section class="pk-sec fam-' + fam + '" aria-label="' + esc(its[0].section_zh || k) + '">' +
@@ -848,7 +882,7 @@
     var rows = bots.map(function (b) {
       var v = equity(b);
       var gain = ok(v) && b.start_bankroll ? v / b.start_bankroll - 1 : null;
-      return { bot: b, v: ok(v) ? v : null, sub: money(v) + "（" + pct(gain, 1, true) + "）" };
+      return { bot: b, v: ok(v) ? v : null, sub: bankMoney(v) + "（" + pct(gain, 1, true) + "）" };
     });
     rows.sort(function (a, b) {
       if (a.v === null && b.v === null) return a.bot.no - b.bot.no;
@@ -865,7 +899,7 @@
     var rows = boardRows();
     var vals = rows.filter(function (r) { return r.v !== null; }).map(function (r) { return r.v; });
     if (!vals.length) {
-      el.innerHTML = '<div class="panel empty">機械人未有實盤紀錄。</div>';
+      el.innerHTML = '<div class="panel empty">機械人未有實盤紀錄。</div>' + sampleNoteHtml(state.index);
     } else {
       var start = state.index.start_bankroll || 10000;
       var lo = Math.min.apply(null, vals.concat([start])), hi = Math.max.apply(null, vals.concat([start]));
@@ -875,12 +909,13 @@
         var b = r.bot;
         var x = r.v === null ? 4 : span < 1e-9 ? 50 : 8 + 84 * (r.v - lo) / span;
         html += '<div class="lane" role="listitem"><div class="pos" aria-label="第' + (i + 1) + '位">' + (i + 1) + "</div>" +
-          '<a class="who" href="#/bot/' + esc(b.id) + '">' + botToken(b, "sm") + '<span style="min-width:0"><b>' + esc(b.name) + "</b><small>" + esc(r.sub) + "</small></span></a>" +
+          '<a class="who" href="#/bot/' + esc(b.id) + '">' + botToken(b, "sm") + '<span style="min-width:0"><b>' + esc(b.name) + "</b><small>" + r.sub + "</small></span></a>" +
           '<div class="run"><div class="runner" data-x="' + x.toFixed(1) + '" title="' + esc(b.name) + '">' +
           '<span class="trail" style="width:' + Math.max(0, x * 0.6).toFixed(0) + 'px"></span>' + botToken(b) + "</div></div></div>";
       });
       html += "</div>";
       html += '<div class="track-note">跑道位置 = 現時模擬資金（起步 ' + money(start) + "，未結算注碼按本金計）；一樣資金時並排。</div>";
+      html += sampleNoteHtml(state.index);
       el.innerHTML = html;
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
@@ -890,12 +925,13 @@
     }
     var t = document.getElementById("lb-table");
     if (!t) return;
-    var head = "<th>#</th><th>機械人</th><th class=r>資金</th><th class=r>盈虧</th><th class=r>ROI</th><th class=r>命中率</th><th class=r>賽馬日</th>";
+    var head = "<th>#</th><th>機械人</th><th class=r>資金</th><th class=r>盈虧</th><th class=r>ROI</th><th class=r>命中率</th><th class=r>賽馬日數</th>";
     var body = rows.map(function (r, i) {
       var lv = r.bot.live || {};
-      return "<tr><td>" + (i + 1) + "</td><td>" + botCell(r.bot) + "</td><td class='r num'><b>" + money(equity(r.bot)) +
+      var nmt = ok(r.bot.n_meetings) ? r.bot.n_meetings : lv.n_meetings;
+      return "<tr><td>" + (i + 1) + "</td><td>" + botCell(r.bot) + "</td><td class='r num'><b>" + bankMoney(equity(r.bot)) +
         "</b></td><td class=r>" + plSpan(lv.profit) + "</td><td class='r num'>" + pct(lv.roi, 1, true) + "</td><td class='r num'>" + pct(lv.hit_rate, 0) +
-        "</td><td class='r num'>" + (ok(lv.n_meetings) ? lv.n_meetings : DASH) + "</td></tr>";
+        "</td><td class='r num'>" + (ok(nmt) ? nmt : DASH) + "</td></tr>";
     }).join("");
     t.innerHTML = '<div class="panel scroll-x"><table class="tbl"><caption>實盤（模擬投注，已結算注項）</caption><thead><tr>' + head +
       "</tr></thead><tbody>" + body + "</tbody></table></div>";
@@ -1045,7 +1081,11 @@
     for (var v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(Math.round(v * 100) / 100);
     return out;
   }
-  function compactMoney(v) { return Math.abs(v) >= 10000 ? "$" + (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1) + "k" : money(v, 0); }
+  function compactMoney(v) {
+    if (Math.abs(v) < 10000) return money(v, 0);
+    var k = Math.abs(v) / 1000;
+    return (v < 0 ? "−$" : "$") + k.toFixed(Math.abs(v) % 1000 === 0 ? 0 : 1) + "k";
+  }
   function debounce(f, ms) { var t; return function () { clearTimeout(t); t = setTimeout(f, ms); }; }
 
   // ------------------------------------------------------------------ meeting page
@@ -1130,6 +1170,7 @@
   }
   function ticketMoney(t) {
     var out = '<span class="tk-stake num">' + money(t.total_stake) + "</span>";
+    if (isPending(t)) return out + pendAt(t.decide_at) + '<span class="muted small">未落注</span>';
     if (t.status === "preview") return out + '<span class="pv-chip sm">預覽</span><span class="muted small">未落注</span>';
     if (t.status === "settled") out += '<span class="tk-pay">' + mark(t.hit, "有派彩", "冇派彩") + "派彩 <b class=num>" + money(t.payout) + "</b></span>" + plSpan(t.profit);
     else out += '<span class="muted small">等賽果</span>';
@@ -1138,36 +1179,51 @@
   function robotCard(info, b, m) {
     var c = botColor(info);
     var tks = (b && b.tickets) || [];
-    var skips = (b && b.skips) || [];
+    var pendT = tks.filter(isPending), realT = tks.filter(function (t) { return !isPending(t); });
+    var allSkips = (b && b.skips) || [];
+    var skips = allSkips.filter(function (x) { return !x.pending; });
+    var pendS = allSkips.filter(function (x) { return x.pending; });
     var settled = b && b.settled && m.status === "results";
     var pv = !!(b && b.preview) || !!m.preview;
     var html = '<article class="rb-card' + (pv ? " is-preview" : "") + '" id="rb-' + esc(info.id) + '" style="--c:' + c[0] + '" tabindex="-1">';
     html += '<header class="rb-head"><a class="rb-who" href="#/bot/' + esc(info.id) + '">' + botToken(info, "sm") + "<span><b>" + esc(info.name) + "</b><small>" + esc(info.style) + "</small></span></a>";
     if (b) {
-      html += '<div class="rb-tot">' + (pv ? '<span class="pv-chip">預覽</span>' : "") + '<span>注數 <b class="num">' + tks.length + "</b></span><span>注碼 <b class=num>" + money(b.stake || 0) + "</b></span>" +
-        (tks.length ? (pv ? '<span class="muted">未落注</span>' : ok(b.payout) ? "<span>派彩 <b class=num>" + money(b.payout) + "</b></span><span>" + plSpan(b.profit) + "</span>" : '<span class="muted">等賽果</span>') : "") + "</div>";
+      var pStake = ok(b.pending_stake) ? b.pending_stake : pendT.reduce(function (a, t) { return a + (t.total_stake || 0); }, 0);
+      html += '<div class="rb-tot">' + (pv ? '<span class="pv-chip">預覽</span>' : "") + '<span>注數 <b class="num">' + realT.length + "</b></span><span>注碼 <b class=num>" + money(b.stake || 0) + "</b></span>" +
+        (pendT.length ? '<span class="pd-tot">待定 <b class="num">' + pendT.length + "</b> 張 · " + money(pStake) + "</span>" : "") +
+        (realT.length ? (pv ? '<span class="muted">未落注</span>' : ok(b.payout) ? "<span>派彩 <b class=num>" + money(b.payout) + "</b></span><span>" + plSpan(b.profit) + "</span>" : '<span class="muted">等賽果</span>') : "") + "</div>";
     }
-    html += "</header>";
+    html += "</header>" + botNote(info, "in-card");
     if (!b) return html + '<div class="rb-empty muted small">呢個賽馬日未有決定。</div></article>';
     if (tks.length) {
       html += '<ul class="rb-tickets">' + tks.map(function (t) {
-        var st = t.status === "settled" ? (t.hit ? " is-hit" : " is-miss") : "";
+        var pd = isPending(t);
+        var st = t.status === "settled" ? (t.hit ? " is-hit" : " is-miss") : pd ? " is-pending" : "";
         return '<li class="tk' + st + '"><div class="tk-where">' + ticketWhere(t) + "</div>" +
           '<div class="tk-main"><div class="tk-struct">' + esc(structZh(t.structure || t.strategy)) +
           (ok(t.n_combos) && t.n_combos > 1 ? ' <small class="muted">' + t.n_combos + " 注 × " + money(t.unit_stake) + "</small>" : "") + "</div>" +
+          (pd ? pendChip(true) : "") +
           '<div class="tk-sel">' + ticketSel(t) + "</div></div>" +
-          '<div class="tk-money">' + ticketMoney(t) + "</div>" + reasonBlock(t.reason, "tk-why") + "</li>";
+          '<div class="tk-money">' + ticketMoney(t) + "</div>" + reasonBlock(pd ? pendReason(t.reason) : t.reason, "tk-why") + "</li>";
       }).join("") + "</ul>";
     } else {
-      html += '<div class="rb-empty small">' + (pv ? "預覽：今日一張單都唔會落。" : "今日一張單都冇落。") + "</div>";
+      html += '<div class="rb-empty small">' + (pv ? "預覽：今日一張單都唔會落。" : pendS.length ? "暫時未有落注；單場注項開跑前約 8 分鐘先決定。" : "今日一張單都冇落。") + "</div>";
+    }
+    function skipLi(x) {
+      return '<li' + (x.missed ? ' class="is-missed"' : "") + "><b>" + (x.race_no > 0 ? "第" + x.race_no + "場" : "過關決定") + "</b>" +
+        (x.missed ? ' <span class="miss-tag">錯過時間</span>' : "") + (x.pending ? " " + pendAt(x.decide_at) : "") +
+        (x.structure && x.structure !== "過關腳" && x.structure !== "自動" ? '<span class="muted small"> ' + esc(structZh(x.structure)) + "</span>" : "") +
+        "：" + esc((x.pending ? pendReason(x.reason) : x.reason) || "冇寫原因") + "</li>";
+    }
+    if (pendS.length) {
+      html += '<details class="rb-skips rb-pend"><summary>' + pendS.length + " 場待定（而家預覽唔買）" + '<span class="more-lbl">睇原因</span></summary><ul>' +
+        pendS.map(skipLi).join("") + "</ul></details>";
     }
     if (skips.length) {
       var nr = skips.filter(function (x) { return x.race_no > 0; }).length, n0 = skips.length - nr;
-      var lbl = [nr ? nr + " 場唔買" : null, n0 ? "過關決定 " + n0 + " 項唔買" : null].filter(Boolean).join(" · ");
-      html += '<details class="rb-skips"><summary>' + lbl + '<span class="more-lbl">睇原因</span></summary><ul>' + skips.map(function (x) {
-        return "<li><b>" + (x.race_no > 0 ? "第" + x.race_no + "場" : "過關決定") + "</b>" + (x.structure && x.structure !== "過關腳" && x.structure !== "自動" ? '<span class="muted small"> ' + esc(structZh(x.structure)) + "</span>" : "") +
-          "：" + esc(x.reason || "冇寫原因") + "</li>";
-      }).join("") + "</ul></details>";
+      var nm = skips.filter(function (x) { return x.missed; }).length;
+      var lbl = [nr ? nr + " 場唔買" + (nm ? "（" + nm + " 場錯過時間）" : "") : null, n0 ? "過關決定 " + n0 + " 項唔買" : null].filter(Boolean).join(" · ");
+      html += '<details class="rb-skips"><summary>' + lbl + '<span class="more-lbl">睇原因</span></summary><ul>' + skips.map(skipLi).join("") + "</ul></details>";
     }
     if (settled === false && m.status === "results" && tks.some(function (t) { return t.status !== "settled"; })) html += '<div class="small muted">部分注項未結算。</div>';
     return html + "</article>";
@@ -1183,7 +1239,12 @@
     var html = '<section class="section" aria-labelledby="rb-h"><div class="section-head"><span class="kicker">ROBOTS</span><h2 id="rb-h">機械人當日落單</h2>' +
       '<span class="muted small">每隻機械人成日所有注項（單場同過關）擺埋一齊' + (settled ? "，已按賽果結算" : "") + "</span></div>";
     if (!hasAny) return html + '<div class="panel empty">未有機械人決定（馬會開售賠率之後就會出預覽）。</div></section>';
-    var tot = bots.reduce(function (a, b) { a.s += b.stake || 0; a.n += (b.tickets || []).length; return a; }, { s: 0, n: 0 });
+    var tot = bots.reduce(function (a, b) {
+      (b.tickets || []).forEach(function (t) { if (isPending(t)) { a.pn += 1; a.ps += t.total_stake || 0; } else a.n += 1; });
+      a.s += b.stake || 0;
+      return a;
+    }, { s: 0, n: 0, pn: 0, ps: 0 });
+    if (m.pending) html += pendNote(m, tot);
     if (m.preview) {
       html += previewBanner(m);
       html += '<p class="small muted rb-sum">' + bots.length + " 隻機械人 · 合共 " + tot.n + " 張單 · 注碼 " + money(tot.s) + "</p>";
@@ -1191,6 +1252,13 @@
     html += '<p class="small muted rb-sum">' + bots.length + ' 隻機械人合共 ' + tot.n + " 張單、注碼 " + money(tot.s) + "（模擬，每隻獨立資金）。模擬研究，非投注建議。</p>";
     html += '<div class="rb-grid">' + list.map(function (info) { return robotCard(info, by[info.id], m); }).join("") + "</div></section>";
     return html;
+  }
+  function pendNote(m, tot) {
+    var rs = m.pending_races || [];
+    return '<div class="pd-note" role="note">' + pendChip() + '<span class="small">單場注項喺每場開跑前約 8 分鐘用最新賠率先決定' +
+      (rs.length ? "（仲有 " + rs.length + " 場：第" + rs.join("、") + "場" + (m.next_decide_at ? "；下一場約 " + hhmm(m.next_decide_at) + " 決定" : "") + "）" : "") +
+      "；過關、孖寶、三寶等跨場注項第一場開跑前約 2 小時已經落。" +
+      (tot && tot.pn ? "而家待定 " + tot.pn + " 張、預覽注碼 " + money(tot.ps) + "（未計入資金）。" : "") + "</span></div>";
   }
   function raceBetChips(r, m) {
     var chips = [];
@@ -1200,6 +1268,7 @@
         var legs = t.legs || [];
         if (!legs.some(function (l) { return l.race_no === r.race_no; })) return;
         var n = legs.length > 1 ? "過關 " + structZh(t.structure || t.strategy).replace(/ #\d+$/, "") : structZh(t.structure || t.strategy);
+        if (isPending(t)) n += "（待定）";
         if (names.indexOf(n) < 0) names.push(n);
       });
       if (names.length) {
@@ -1361,7 +1430,7 @@
       return '<a class="bot-card" href="#/bot/' + esc(b.id) + '" style="--c:' + botColor(b)[0] + '"><div class="bc-top">' + botToken(b, "lg") +
         '<div><b style="font-size:17px">' + esc(b.name) + '</b><div class="small muted">' + esc(b.style) + "</div></div></div>" +
         '<div class="small" style="color:var(--text-2)">' + esc(b.description) + "</div>" +
-        '<div class="mini-stats"><span>資金 <b>' + money(equity(b)) + "</b></span><span>盈虧 " + plSpan(lv.profit) + "</span><span>ROI <b>" +
+        botNote(b) + '<div class="mini-stats"><span>資金 <b>' + bankMoney(equity(b)) + "</b></span><span>盈虧 " + plSpan(lv.profit) + "</span><span>ROI <b>" +
         pct(lv.roi, 1, true) + "</b></span></div></a>";
     }).join("") + "</div></section>";
     app.innerHTML = html;
@@ -1381,14 +1450,14 @@
       '<label class="small muted" style="display:flex;align-items:center;gap:6px">機械人 <select class="select" id="bot-sel">' +
       (state.index.bots || []).map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === id ? " selected" : "") + ">" + x.no + " " + esc(x.name) + "</option>"; }).join("") +
       "</select></label></div>";
-    html += '<p style="color:var(--text-2)">' + esc(b.description) + "</p>";
+    html += '<p style="color:var(--text-2)">' + esc(b.description) + "</p>" + botNote(b);
     html += '<div class="stats">' +
-      stat("現時資金", money(eq), "起步 " + money(b.start_bankroll) + "（" + pct(gain, 1, true) + "）" +
+      stat("現時資金", bankMoney(eq), "起步 " + money(b.start_bankroll) + "（" + pct(gain, 1, true) + "）" +
         (lv.open_stake > 0 ? "；其中 " + money(lv.open_stake) + " 喺未結算注項" : "")) +
       stat("實盤盈虧", ok(lv.profit) ? signedMoney(lv.profit) : DASH, "投注 " + money(lv.stake) + " · 派彩 " + money(lv.returns)) +
       stat("實盤 ROI", pct(lv.roi, 1, true), (ok(lv.n_meetings) ? lv.n_meetings : 0) + " 個賽馬日 · " + (ok(lv.n_tickets) ? lv.n_tickets : 0) + " 飛已結算") +
       stat("命中率", pct(lv.hit_rate, 0), "有派彩嘅飛數比例") +
-      "</div>";
+      "</div>" + sampleNoteHtml(state.index);
     html += '<section class="section"><div class="section-head"><h2>資金曲線</h2><span class="muted small">實盤：每個已結算賽馬日後嘅模擬資金</span></div>' +
       '<div class="panel pad"><div id="curve1"></div></div></section>';
     html += '<section class="section"><div class="section-head"><h2>全部注項</h2><span class="muted small" id="tk-sub"></span></div><div id="tickets"><div class="loading">載入中…</div></div></section>';
@@ -1455,7 +1524,8 @@
       "<li>數據：公開嘅歷屆賽果、派彩、排位表，同賽前公開賠率（開售後）。</li>" +
       "<li>模型：按每場比賽估計每匹馬嘅勝出率（勝）同入三甲機率（入三甲）；每場勝出率加埋等於 100%。</li>" +
       "<li>防止偷看未來：所有特徵只用該場之前嘅資料，模型每次只用預測日之前嘅數據訓練。</li>" +
-      "<li>馬會一開售賠率就出評分、今日精選同機械人預覽，之後大約每小時更新；第一場開跑前約 2 小時機械人正式落注，" + (idx.bots || []).length + " 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
+      "<li>馬會一開售賠率就出評分、今日精選同機械人預覽，之後大約每小時更新。過關、孖寶、三寶等跨場注項喺第一場開跑前約 2 小時落；單場注項喺每場開跑前約 8 分鐘用最新賠率先決定（之前顯示做「待定」，如果錯過時間就唔落）。" + (idx.bots || []).length + " 隻機械人各自決定買唔買、買咩，並記錄原因；賽後用正式派彩結算。</li>" +
+      "<li>機械人成績要好多個賽馬日先有參考價值；開始初期樣本細，短期輸贏好受運氣影響。</li>" +
       "<li>彩池抽水大約 17.5%–25%，過關每一關都要扣；長遠嚟講大部分玩法都係蝕錢。</li></ul>";
     html += "<h2>" + (idx.bots || []).length + " 隻機械人</h2><ul>" + (idx.bots || []).map(function (b) {
       return '<li><a href="#/bot/' + esc(b.id) + '">' + b.no + " 號 " + esc(b.name) + "</a>（" + esc(b.style) + "）：" + esc(b.description) + "</li>";

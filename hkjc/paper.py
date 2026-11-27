@@ -211,6 +211,87 @@ def _race_data(conn, race_id):
     return "missing", good, scr
 
 
+def _pool_published(conn, t, leg, pool, legs, rows) -> bool:
+    """Has the ticket's pool any REAL dividend row yet for this leg?  A pool-refund marker row
+    ('REFUND' / '-' / NULL dividend) is not a payout.  Multi-race pools (DBL, TBL ...) keep their
+    rows on the LAST leg's race, so only that leg is checked."""
+    lp = leg.get("pool") or pool
+    markers = bets._REFUND_MARKERS
+    if lp in bets.MULTI_RACE_POOLS:
+        if int(leg["race_no"]) != int(legs[-1]["race_no"]):
+            return True
+        return any(c is not None and str(c).strip().upper() not in markers and d is not None
+                   for c, d in conn.execute("SELECT combination, dividend FROM dividends WHERE race_id=? AND pool=?",
+                                            (_race_id(t["date"], t["venue"], leg["race_no"]), lp)))
+    if lp not in bets.POOL_SIZE:
+        return True
+    return any(p == lp and c is not None and str(c).strip().upper() not in markers and d is not None
+               for p, c, d in rows)
+
+
+def reopen_settled(conn, ticket_ids, note="重新結算：撤回之前嘅派彩") -> list[int]:
+    """Put SETTLED tickets back to 'open' (ledger gives back the earlier payout) so that
+    settle() can settle them again with complete dividends.  Returns the ticket ids reopened."""
+    ts, done = _now(), []
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        for tid in ticket_ids:
+            t = conn.execute("SELECT ticket_id, payout, bot_id, status FROM paper_tickets WHERE ticket_id=?",
+                             (tid,)).fetchone()
+            if not t or t["status"] != "settled":
+                continue
+            det = json.loads(conn.execute("SELECT detail FROM paper_tickets WHERE ticket_id=?", (tid,)).fetchone()[0]
+                             or "{}")
+            det["resettled"] = int(det.get("resettled") or 0) + 1
+            conn.execute("UPDATE paper_tickets SET status='open', payout=NULL, profit=NULL, settled_at=NULL, detail=? "
+                         "WHERE ticket_id=?", (json.dumps(det, ensure_ascii=False), tid))
+            if float(t["payout"] or 0):
+                _ledger(conn, tid, -round(float(t["payout"]), 2), note, ts, t["bot_id"])
+            done.append(int(tid))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return done
+
+
+def wrong_pool_refunds(conn, since=None, include_resettled=False) -> list[int]:
+    """Settled tickets that were refunded as 'pool not offered' although the pool's dividends
+    are in the DB now (settled too early during live racing)."""
+    out = []
+    q = "SELECT * FROM paper_tickets WHERE status='settled'" + (" AND date>=?" if since else "")
+    for t in conn.execute(q, (since,) if since else ()).fetchall():
+        d = json.loads(t["detail"] or "{}")
+        if d.get("resettled") and not include_resettled:   # re-settled once already: never loop
+            continue
+        combos = d.get("combinations") or []
+        legs = json.loads(t["legs"])
+        pool = d.get("pool") or legs[0].get("pool")
+        # single-race / all-up pools label it 'pool_refund'; multi-race pools (DBL/TBL) settled
+        # against an empty row list label every unit 'refund'
+        multi_all_refund = (pool in bets.MULTI_RACE_POOLS and combos
+                            and all(c.get("status") == "refund" for c in combos))
+        if not (multi_all_refund or any(c.get("status") == "pool_refund" for c in combos)):
+            continue
+        data = [_race_data(conn, _race_id(t["date"], t["venue"], leg["race_no"])) for leg in legs]
+        if any(st != "ok" for st, _r, _s in data):          # a void race is a genuine refund
+            continue
+        if all(_pool_published(conn, t, leg, pool, legs, rows) for leg, (_st, rows, _s) in zip(legs, data)):
+            out.append(int(t["ticket_id"]))
+    return out
+
+
+def resettle_wrong_refunds(conn, since=None) -> dict:  # noqa: D401
+    """Re-open and settle again every ticket wrongly refunded as 'pool not offered'."""
+    ids = wrong_pool_refunds(conn, since)
+    reopened = reopen_settled(conn, ids)
+    dates = sorted({r[0] for r in conn.execute(
+        f"SELECT DISTINCT date FROM paper_tickets WHERE ticket_id IN ({','.join('?' * len(reopened))})", reopened)}) \
+        if reopened else []
+    n = sum(settle(conn, d) for d in dates)
+    return {"reopened": len(reopened), "settled": n, "dates": dates}
+
+
 def _favourite(conn, race_id):
     """Lowest final win odds among the starters of a race (the multi-race pools' substitute)."""
     r = conn.execute("SELECT horse_no FROM runners WHERE race_id=? AND COALESCE(scratched,0)=0 "
@@ -236,8 +317,11 @@ def settle(conn, date) -> int:
     """Settle all open tickets dated ``date`` (legacy and every robot; each payout is
     credited to the ticket's own ledger).  Returns the number settled.
 
-    A ticket is settled once every leg race has dividends, or the meeting is
-    final ('results'/'abandoned') - legs without results are then void/refunded.
+    A ticket is settled once every leg race has dividends FOR THE TICKET'S POOL, or the
+    meeting is final ('results'/'abandoned') - legs without results are then void/refunded.
+    (While racing, HKJC's preliminary page lists WIN/PLA/QIN... first and the exotic pools
+    (FF, QTT, TRI ...) a few minutes later: a missing pool means "not published yet", and
+    is treated as "not offered" (refund) only once the meeting is final.)
     Safe to call repeatedly."""
     open_t = conn.execute("SELECT * FROM paper_tickets WHERE date=? AND status='open' ORDER BY ticket_id",
                           (date,)).fetchall()
@@ -254,6 +338,9 @@ def settle(conn, date) -> int:
         for leg in legs:
             rn = int(leg["race_no"])
             st, rows, s = _race_data(conn, _race_id(t["date"], t["venue"], rn))
+            if st == "ok" and not final and not _pool_published(conn, t, leg, pool, legs, rows):
+                pending = True
+                continue
             if st == "ok":
                 divs[rn], scr[rn] = rows, s
             elif st == "void":

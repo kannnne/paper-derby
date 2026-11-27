@@ -363,6 +363,17 @@ class _Bank:
         self.left = round(self.left - stake, 2)
 
 
+class _NoLimitBank(_Bank):
+    """daily_picks: never limited by its bankroll (every 精選 item is bought so the picks' track
+    record stays complete; its ledger may go negative)."""
+
+    def can(self, stake):
+        return True
+
+
+NO_BANKROLL_LIMIT = {"daily_picks"}
+
+
 def _dec(bot_id, rn, action, structure, selections, stake, reason, ticket=None):
     return {"bot_id": bot_id, "race_no": int(rn), "action": action, "structure": structure,
             "selections": selections, "stake": float(stake), "reason": reason, "ticket": ticket}
@@ -767,10 +778,17 @@ def _pick_selection(it):
     return out[0] if it["kind"] == "single" and out else out
 
 
-def _daily_picks(bid, c, ctxs, bank, pk):
-    """Buys EVERY 今日精選 item (one pick per play type / section) so each play type is tracked."""
+def _daily_picks(bid, c, ctxs, bank, pk, only_races=None):
+    """Buys EVERY 今日精選 item (one pick per play type / section) so each play type is tracked.
+
+    ``only_races`` (per-race late betting): buy only the single-race items of those races and
+    write no meeting-level (race 0) row; the 「今日冇精選」 wording still looks at the whole day."""
     out = []
     items = [it for it in (pk or {}).get("items") or [] if it.get("ticket")]
+    any_items = bool(items)
+    if only_races is not None:
+        rs = {int(r) for r in only_races}
+        items = [it for it in items if it["kind"] == "single" and int(it["race_no"]) in rs]
     notes = (pk or {}).get("race_notes") or {}
     bet_races = set()
     multi = []
@@ -792,9 +810,13 @@ def _daily_picks(bid, c, ctxs, bank, pk):
         if x.rn in bet_races:
             continue
         why = notes.get(str(x.rn)) or notes.get(x.rn)
-        head = f"第{x.rn}場冇單場精選" if items else f"今日冇精選（{len(ctxs)} 場都冇可以計算嘅玩法）"
+        head = (f"第{x.rn}場冇單場精選" if any_items else
+                "今日冇精選（賽前 2 小時冇可以計算嘅玩法）" if only_races is not None else
+                f"今日冇精選（{len(ctxs)} 場都冇可以計算嘅玩法）")
         out.append(_dec(bid, x.rn, "skip", "精選", [], 0.0,
                         head + ("：" + why if why else f"（{x.n} 匹出賽）") + " → 呢場唔買單場注"))
+    if only_races is not None:
+        return out
     if not multi:
         out.append(_dec(bid, 0, "skip", "跨場／過關精選", [], 0.0,
                         f"今日冇跨場／過關精選（共 {len(items)} 項單場精選）→ 唔買"))
@@ -807,26 +829,56 @@ _KINDS = {"place_only": _place_only, "fixed_combo": _fixed_combo, "adaptive": _a
           "monkey": _monkey}
 
 
-def decide(bot, pred_df, odds, bankroll, cache=None, picks=None) -> list[dict]:
+def decide(bot, pred_df, odds, bankroll, cache=None, picks=None, races=None) -> list[dict]:
     """Decisions of one robot for one meeting (see module docstring).
 
     ``bot``: a BOTS entry or its id.  ``bankroll``: the robot's balance before the
     meeting; tickets are taken in order and any ticket the remaining balance cannot
     cover becomes a 「資金不足」 skip.  ``cache``: optional RaceCtx memo (backtest).
     ``picks``: the meeting's 今日精選 dict (hkjc.picks.make_picks) for the daily_picks robot;
-    computed from pred_df / odds when None."""
+    computed from pred_df / odds when None.
+    ``races`` (per-race late betting): only the SINGLE-RACE decisions of these races - pred_df
+    is cut to them (so ``bankroll`` is all theirs), meeting-level robots return [] and
+    daily_picks buys only those races' single-race picks (no race 0 rows)."""
     bot = get_bot(bot)
     cfg = {**_CFG.get(bot["id"], {}), **(bot.get("config") or {})}
-    ctxs = prepare(pred_df, odds, cache)
-    bank = _Bank(bankroll)
     kind = cfg.get("kind", bot["id"])
+    if races is not None:
+        if kind in MEETING_LEVEL_KINDS:
+            return []
+        rs = {int(r) for r in races}
+        pred_df = pred_df[pd.to_numeric(pred_df["race_no"]).astype(int).isin(rs)]
+    ctxs = prepare(pred_df, odds, cache)
+    bank = _NoLimitBank(bankroll) if (kind in NO_BANKROLL_LIMIT or bot["id"] in NO_BANKROLL_LIMIT) else _Bank(bankroll)
     if kind == "daily_picks":
         if picks is None:
             from . import picks as _picks
             picks = _picks.make_picks(pred_df, odds)
-        return _daily_picks(bot["id"], cfg, ctxs, bank, picks)
+        return _daily_picks(bot["id"], cfg, ctxs, bank, picks, only_races=races)
     fn = _KINDS[kind]
-    return fn(bot["id"], cfg, ctxs, bank)
+    out = fn(bot["id"], cfg, ctxs, bank)
+    if races is not None:
+        out = [d for d in out if d["race_no"] in rs]
+    return out
+
+
+# ---- per-race late betting ----------------------------------------------------------------
+# Single-race decisions are taken ~8 min before EACH race with that race's latest odds
+# (hkjc.cli.cmd_race_bet); multi-race ones (all-ups / 過關, DBL / TBL, every race_no=0 row and the
+# per-race 過關腳 rows of the meeting-level robots) stay with the T-2h run.
+MEETING_LEVEL_KINDS = ("fixed_combo", "pla_parlay")
+PENDING = "pending"
+PENDING_PREFIX = "待定（開跑前約 8 分鐘用最新賠率決定）而家預覽："
+MISSED_REASON = "錯過開跑前落注時間，冇落注"
+
+
+def bot_kind(bot_id) -> str:
+    return _CFG.get(bot_id, {}).get("kind", bot_id)
+
+
+def is_single_race(bot_id, d) -> bool:
+    """True for a decision that is taken per race at race time (not a multi-race one)."""
+    return int(d["race_no"]) > 0 and bot_kind(bot_id) not in MEETING_LEVEL_KINDS
 
 
 def _error_rows(bid, pred_df, exc) -> list[dict]:
@@ -849,14 +901,28 @@ def tickets_of(decisions) -> list[dict]:
 # =====================================================================================
 # live: run every robot for a meeting
 # =====================================================================================
-def run_bots(conn, run_id, date, venue, pred_df, odds, bots=None, picks=None) -> list[dict]:
+def _defer(d):
+    """A single-race decision of the T-2h run -> 'pending' (decided again at race time)."""
+    d["preview_ticket"] = d.get("ticket")
+    d["ticket"] = None
+    d["action"] = PENDING
+    d["reason"] = PENDING_PREFIX + (d["reason"] or "")
+    return d
+
+
+def run_bots(conn, run_id, date, venue, pred_df, odds, bots=None, picks=None, defer_single=False) -> list[dict]:
     """Every robot decides for meeting (date, venue) and its tickets are paper-placed.
 
     Per robot: void + refund its still-open tickets of this meeting (any run - so a
     re-run is idempotent), read its own bankroll, decide, place the tickets with
     bot_id + reason, and replace its bot_decisions rows of the meeting.  A robot that
     already has SETTLED tickets for the meeting is left alone (no double betting after
-    the results).  Returns all decisions (each with ticket_id or None)."""
+    the results).  Returns all decisions (each with ticket_id or None).
+
+    ``defer_single`` (the T-2h run with per-race late betting): only MULTI-RACE tickets are
+    placed; every single-race decision (is_single_race) is written as action 'pending' with
+    its current preview (structure / selections / stake, reason prefixed PENDING_PREFIX) and
+    decided for real by race_bots ~8 min before its race."""
     allout = []
     now = paper._now()
     for bot in (bots or BOTS):
@@ -871,6 +937,8 @@ def run_bots(conn, run_id, date, venue, pred_df, odds, bots=None, picks=None) ->
         bal = paper.bankroll(conn, bid)
         try:
             decs = decide(bot, pred_df, odds, bal, picks=picks)
+            if defer_single:
+                decs = [_defer(d) if is_single_race(bid, d) else d for d in decs]
             tk = [d for d in decs if d["ticket"]]
             ids = paper.place_tickets(conn, run_id, date, venue, [d["ticket"] for d in tk],
                                       starting_bankroll=bot.get("start_bankroll", START_BANKROLL),
@@ -907,6 +975,146 @@ def run_bots(conn, run_id, date, venue, pred_df, odds, bots=None, picks=None) ->
             raise
         allout += decs
     return allout
+
+
+def _void_run_tickets(conn, run_id, bot_id, note):
+    """Void + refund the still-open tickets that ``run_id`` placed for ``bot_id`` (a race-time run
+    that failed between placing its tickets and writing its decision rows)."""
+    ts = paper._now()
+    ids = []
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        for tid, stake in conn.execute("SELECT ticket_id, total_stake FROM paper_tickets WHERE run_id=? AND "
+                                       "bot_id IS ? AND status='open'", (run_id, bot_id)).fetchall():
+            conn.execute("UPDATE paper_tickets SET status='void', payout=?, profit=0, settled_at=? WHERE ticket_id=?",
+                         (stake, ts, tid))
+            paper._ledger(conn, tid, stake, note, ts, bot_id)
+            ids.append(tid)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return ids
+
+
+def _replace_race_rows(conn, pre_run_id, bid, date, venue, race_no, decs, created_at, only_pending=True):
+    """Replace the robot's pending rows of one race in the T-2h run by ``decs`` (keeping the
+    run's created_at so every row of the robot still reads as one run)."""
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute("DELETE FROM bot_decisions WHERE run_id=? AND bot_id=? AND race_no=?"
+                     + (" AND action=?" if only_pending else ""),
+                     (pre_run_id, bid, int(race_no)) + ((PENDING,) if only_pending else ()))
+        conn.executemany(
+            "INSERT OR REPLACE INTO bot_decisions (run_id, bot_id, date, venue, race_no, action, structure, "
+            "selections, stake, reason, ticket_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            [(pre_run_id, bid, date, venue, d["race_no"], d["action"], d["structure"],
+              json.dumps(d["selections"], ensure_ascii=False, default=int), d["stake"], d["reason"],
+              d.get("ticket_id"), created_at) for d in decs])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def pending_rows(conn, pre_run_id, race_no=None, bot_id=None):
+    q = "SELECT * FROM bot_decisions WHERE run_id=? AND action=?"
+    prm = [pre_run_id, PENDING]
+    if race_no is not None:
+        q += " AND race_no=?"
+        prm.append(int(race_no))
+    if bot_id is not None:
+        q += " AND bot_id=?"
+        prm.append(bot_id)
+    return conn.execute(q, prm).fetchall()
+
+
+class RaceWindowClosed(Exception):
+    """Raised by race_bots when the decision window closed before a robot's tickets were placed."""
+
+
+def reconcile_race_orphans(conn, pre_run_id, race_run_id, race_no, note=None) -> list[int]:
+    """Void + refund open tickets placed under ``race_run_id`` that no decision row of the race
+    links to (a run that died between placing tickets and writing its rows).  Linked tickets
+    (decided in time) are kept.  Returns the voided ticket ids."""
+    linked = {int(r[0]) for r in conn.execute(
+        "SELECT ticket_id FROM bot_decisions WHERE run_id=? AND race_no=? AND ticket_id IS NOT NULL",
+        (pre_run_id, int(race_no)))}
+    ts = paper._now()
+    out = []
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        for tid, stake, bid in conn.execute("SELECT ticket_id, total_stake, bot_id FROM paper_tickets "
+                                            "WHERE run_id=? AND status='open'", (race_run_id,)).fetchall():
+            if int(tid) in linked:
+                continue
+            conn.execute("UPDATE paper_tickets SET status='void', payout=?, profit=0, settled_at=? WHERE ticket_id=?",
+                         (stake, ts, tid))
+            paper._ledger(conn, tid, stake, note or f"作廢退回 ({race_run_id} 未完成)", ts, bid)
+            out.append(int(tid))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return out
+
+
+def race_bots(conn, pre_run_id, race_run_id, date, venue, race_no, pred_df, odds, picks=None,
+              bots=None, deadline=None, clock=None) -> list[dict]:
+    """Race-time step of per-race late betting (hkjc.cli.cmd_race_bet): every robot that still has
+    'pending' rows for ``race_no`` in the T-2h run ``pre_run_id`` decides that race again with
+    ``pred_df`` / ``odds`` (latest; decide(races=[race_no]), own current bankroll -> 「資金不足」
+    skips), its tickets are placed under ``race_run_id`` (replace=False: no other ticket is
+    voided) and its pending rows of the race are replaced by the final bet / skip rows.
+    A robot without pending rows for the race (meeting-level robot, or already decided) is left
+    alone, so re-running never double-bets.  Returns the new decisions."""
+    rn = int(race_no)
+    allout = []
+    for bot in (bots or BOTS):
+        bot = get_bot(bot)
+        bid = bot["id"]
+        pend = pending_rows(conn, pre_run_id, rn, bid)
+        if not pend:
+            continue
+        if deadline is not None and clock is not None and clock() > deadline:
+            raise RaceWindowClosed(f"R{rn}: window closed before {bid} decided")
+        created = pend[0]["created_at"]
+        # an earlier attempt that died after placing tickets: refund them, decide again
+        _void_run_tickets(conn, race_run_id, bid, f"作廢退回 ({race_run_id} 重做)")
+        paper.seed_bankroll(conn, bot.get("start_bankroll", START_BANKROLL), bid)
+        try:
+            decs = decide(bot, pred_df, odds, paper.bankroll(conn, bid), picks=picks, races=[rn])
+            if not decs:      # e.g. every runner scratched: still one row for the race
+                decs = [_dec(bid, rn, "skip", pend[0]["structure"] or "-", [], 0.0,
+                             f"第{rn}場開跑前冇可以落注嘅馬匹（可能全部退出）→ 唔買")]
+            tk = [d for d in decs if d["ticket"]]
+            if tk and deadline is not None and clock is not None and clock() > deadline:
+                raise RaceWindowClosed(f"R{rn}: window closed while {bid} was deciding")
+            ids = paper.place_tickets(conn, race_run_id, date, venue, [d["ticket"] for d in tk],
+                                      starting_bankroll=bot.get("start_bankroll", START_BANKROLL),
+                                      replace=False, bot_id=bid) if tk else []
+        except RaceWindowClosed:
+            raise
+        except Exception as e:
+            log.exception("race_bots: robot %s failed for %s %s R%s - no bet this race", bid, date, venue, rn)
+            _void_run_tickets(conn, race_run_id, bid, f"作廢退回 ({race_run_id} 系統錯誤)")
+            decs = [_dec(bid, rn, "skip", "-", [], 0.0, f"系統錯誤（{type(e).__name__}），呢場唔落注")]
+            tk, ids = [], []
+        for d, tid in zip(tk, ids):
+            d["ticket_id"] = tid
+        for d in decs:
+            d.setdefault("ticket_id", None)
+        _replace_race_rows(conn, pre_run_id, bid, date, venue, rn, decs, created)
+        allout += decs
+    return allout
+
+
+def mark_race_missed(conn, pre_run_id, race_no, reason=MISSED_REASON) -> int:
+    """Race-time window missed: the race's pending rows become 'skip' (stake 0, no ticket)."""
+    cur = conn.execute("UPDATE bot_decisions SET action='skip', stake=0, ticket_id=NULL, reason=? "
+                       "WHERE run_id=? AND race_no=? AND action=?", (reason, pre_run_id, int(race_no), PENDING))
+    conn.commit()
+    return cur.rowcount
 
 
 # =====================================================================================

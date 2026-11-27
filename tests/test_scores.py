@@ -181,6 +181,9 @@ def test_score_meeting_upcoming_2026_10_21(real_copy):
                           "AND COALESCE(scratched,0)=0").fetchone()[0]
     if n_card == 0:
         pytest.skip("no racecard for 2026-10-21 HV")
+    st = conn.execute("SELECT status FROM meetings WHERE date='2026-10-21' AND venue='HV'").fetchone()
+    if st and st[0] in ("results", "abandoned"):
+        pytest.skip("2026-10-21 HV is no longer upcoming in this DB (results are in)")
     t = time.time()
     out = SC.score_meeting(conn, "2026-10-21", "HV", model_dir=mdir)
     assert time.time() - t < 30          # < 10 s warm; generous for a loaded CI box
